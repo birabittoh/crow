@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { useCreatePost } from '../hooks';
+import { api } from '../api';
+import type { OptionField } from '../api';
 
 interface PostFormProps {
   platforms: string[];
+  platformOptions: Record<string, OptionField[]>;
   initialDate: Date | null;
   onClose: () => void;
 }
 
-export default function PostForm({ platforms, initialDate, onClose }: PostFormProps) {
+interface SelectedFile {
+  file: File;
+  preview: string;
+  type: 'image' | 'video';
+}
+
+export default function PostForm({ platforms, platformOptions, initialDate, onClose }: PostFormProps) {
   const createPost = useCreatePost();
 
   const defaultDateTime = initialDate
@@ -19,12 +28,58 @@ export default function PostForm({ platforms, initialDate, onClose }: PostFormPr
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platforms);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [options, setOptions] = useState<Record<string, Record<string, unknown>>>({});
+  const [files, setFiles] = useState<SelectedFile[]>([]);
+  const [activeTab, setActiveTab] = useState(platforms[0] || '');
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
     );
+  };
+
+  const setOptionValue = (platform: string, key: string, value: unknown) => {
+    setOptions((prev) => ({
+      ...prev,
+      [platform]: {
+        ...prev[platform],
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (!selected) return;
+
+    const newFiles: SelectedFile[] = [];
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i];
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      if (!isImage && !isVideo) continue;
+
+      newFiles.push({
+        file,
+        preview: isImage ? URL.createObjectURL(file) : '',
+        type: isImage ? 'image' : 'video',
+      });
+    }
+
+    setFiles((prev) => [...prev, ...newFiles]);
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => {
+      const removed = prev[index];
+      if (removed.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,18 +95,41 @@ export default function PostForm({ platforms, initialDate, onClose }: PostFormPr
       return;
     }
 
+    setSubmitting(true);
+
     try {
-      await createPost.mutateAsync({
+      const post = await createPost.mutateAsync({
         base_content: content,
         scheduled_at_utc: new Date(scheduledAt).toISOString(),
-        platform_targets: selectedPlatforms.map((p) => ({
-          platform: p,
-          override_content: overrides[p] || null,
-        })),
+        platform_targets: selectedPlatforms.map((p) => {
+          const platformOpts = options[p];
+          const cleanedOpts = platformOpts
+            ? Object.fromEntries(
+                Object.entries(platformOpts).filter(
+                  ([, v]) => v !== undefined && v !== '' && v !== null
+                )
+              )
+            : null;
+
+          return {
+            platform: p,
+            override_content: overrides[p] || null,
+            override_options_json:
+              cleanedOpts && Object.keys(cleanedOpts).length > 0 ? cleanedOpts : null,
+          };
+        }),
       });
+
+      // Upload media files
+      for (const f of files) {
+        await api.uploadMedia(post.id, f.file);
+      }
+
       onClose();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -87,36 +165,119 @@ export default function PostForm({ platforms, initialDate, onClose }: PostFormPr
           />
         </div>
 
+        {/* Media upload */}
         <div className="form-group">
-          <label>Platforms</label>
-          <div className="platform-selector">
-            {platforms.map((p) => (
-              <label key={p} className="platform-checkbox">
-                <input
-                  type="checkbox"
-                  checked={selectedPlatforms.includes(p)}
-                  onChange={() => togglePlatform(p)}
-                />
-                <span className="badge">{p}</span>
-              </label>
-            ))}
+          <label>Media</label>
+          <div className="media-upload-area">
+            {files.length > 0 && (
+              <div className="media-preview-grid">
+                {files.map((f, i) => (
+                  <div key={i} className="media-preview-item">
+                    {f.type === 'image' ? (
+                      <img src={f.preview} alt="" className="media-preview-img" />
+                    ) : (
+                      <div className="media-preview-video">
+                        <span className="media-preview-video-icon">&#9654;</span>
+                        <span className="media-preview-filename">{f.file.name}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="media-remove-btn"
+                      onClick={() => removeFile(i)}
+                    >
+                      &times;
+                    </button>
+                    <span className="media-preview-size">
+                      {(f.file.size / 1024).toFixed(0)} KB
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4"
+              multiple
+              onChange={handleFileSelect}
+              className="media-file-input"
+              id="media-upload"
+            />
+            <label htmlFor="media-upload" className="btn btn-ghost media-upload-btn">
+              + Add Image or Video
+            </label>
           </div>
         </div>
 
-        {selectedPlatforms.map((p) => (
-          <div key={p} className="form-group override-group">
-            <label>Override for {p} (optional)</label>
-            <textarea
-              value={overrides[p] || ''}
-              onChange={(e) =>
-                setOverrides((prev) => ({ ...prev, [p]: e.target.value }))
-              }
-              rows={2}
-              placeholder={`Custom content for ${p}...`}
-              className="form-textarea form-textarea-small"
-            />
+        {/* Platform tabs */}
+        <div className="form-group">
+          <label>Platforms</label>
+          <div className="platform-tabs">
+            <div className="platform-tab-bar">
+              {platforms.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`platform-tab ${activeTab === p ? 'active' : ''} ${
+                    selectedPlatforms.includes(p) ? 'enabled' : 'disabled'
+                  }`}
+                  onClick={() => setActiveTab(p)}
+                >
+                  {p}
+                  {selectedPlatforms.includes(p) && (
+                    <span className="tab-check">&#10003;</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {platforms.map((p) => {
+              if (p !== activeTab) return null;
+              const fields = platformOptions[p] || [];
+              const isEnabled = selectedPlatforms.includes(p);
+
+              return (
+                <div key={p} className="platform-tab-content">
+                  <label className="platform-enable-toggle">
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={() => togglePlatform(p)}
+                    />
+                    <span>Post on {p}</span>
+                  </label>
+
+                  {isEnabled && (
+                    <div className="platform-tab-fields">
+                      <div className="form-group">
+                        <label>Override content (optional)</label>
+                        <textarea
+                          value={overrides[p] || ''}
+                          onChange={(e) =>
+                            setOverrides((prev) => ({ ...prev, [p]: e.target.value }))
+                          }
+                          rows={2}
+                          placeholder={`Custom content for ${p}...`}
+                          className="form-textarea form-textarea-small"
+                        />
+                      </div>
+
+                      {fields.map((field) => (
+                        <OptionFieldInput
+                          key={field.key}
+                          field={field}
+                          value={options[p]?.[field.key]}
+                          onChange={(value) => setOptionValue(p, field.key, value)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
 
         <div className="form-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
@@ -125,12 +286,81 @@ export default function PostForm({ platforms, initialDate, onClose }: PostFormPr
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={createPost.isPending}
+            disabled={submitting}
           >
-            {createPost.isPending ? 'Scheduling...' : 'Schedule Post'}
+            {submitting ? 'Scheduling...' : 'Schedule Post'}
           </button>
         </div>
       </form>
     </div>
   );
+}
+
+function OptionFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: OptionField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  switch (field.type) {
+    case 'boolean':
+      return (
+        <div className="form-group option-field">
+          <label className="option-checkbox">
+            <input
+              type="checkbox"
+              checked={!!value}
+              onChange={(e) => onChange(e.target.checked || undefined)}
+            />
+            <span>{field.label}</span>
+          </label>
+          {field.description && (
+            <span className="option-description">{field.description}</span>
+          )}
+        </div>
+      );
+
+    case 'enum':
+      return (
+        <div className="form-group option-field">
+          <label>{field.label}</label>
+          <select
+            className="form-input"
+            value={(value as string) || ''}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          >
+            <option value="">-- None --</option>
+            {field.enumValues?.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          {field.description && (
+            <span className="option-description">{field.description}</span>
+          )}
+        </div>
+      );
+
+    case 'string':
+    default:
+      return (
+        <div className="form-group option-field">
+          <label>{field.label}</label>
+          <input
+            type="text"
+            className="form-input"
+            value={(value as string) || ''}
+            onChange={(e) => onChange(e.target.value || undefined)}
+            placeholder={field.description || ''}
+          />
+          {field.description && (
+            <span className="option-description">{field.description}</span>
+          )}
+        </div>
+      );
+  }
 }

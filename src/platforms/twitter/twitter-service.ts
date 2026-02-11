@@ -5,6 +5,7 @@ import {
   PublishResult,
   PlatformValidationError,
   PlatformError,
+  OptionField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -40,6 +41,23 @@ export class TwitterService implements PlatformService {
 
   isAvailable(): boolean {
     return this.client !== null;
+  }
+
+  getOptionFields(): OptionField[] {
+    return [
+      {
+        key: 'reply_to_tweet_id',
+        label: 'Reply To Tweet ID',
+        type: 'string',
+        description: 'ID of the tweet to reply to',
+      },
+      {
+        key: 'quote_tweet_id',
+        label: 'Quote Tweet ID',
+        type: 'string',
+        description: 'ID of the tweet to quote',
+      },
+    ];
   }
 
   validatePost(content: PublishContent): PlatformValidationError[] {

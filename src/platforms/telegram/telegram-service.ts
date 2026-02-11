@@ -5,6 +5,7 @@ import {
   PublishResult,
   PlatformValidationError,
   PlatformError,
+  OptionField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -36,6 +37,30 @@ export class TelegramService implements PlatformService {
     return this.bot !== null && this.channelId !== '';
   }
 
+  getOptionFields(): OptionField[] {
+    return [
+      {
+        key: 'parse_mode',
+        label: 'Parse Mode',
+        type: 'enum',
+        enumValues: ['MarkdownV2', 'HTML'],
+        description: 'How to parse the message text',
+      },
+      {
+        key: 'disable_web_page_preview',
+        label: 'Disable Web Page Preview',
+        type: 'boolean',
+        description: 'Disables link previews in messages',
+      },
+      {
+        key: 'disable_notification',
+        label: 'Disable Notification',
+        type: 'boolean',
+        description: 'Sends the message silently',
+      },
+    ];
+  }
+
   validatePost(content: PublishContent): PlatformValidationError[] {
     const errors: PlatformValidationError[] = [];
     const hasMedia = content.media.length > 0;
@@ -60,55 +85,77 @@ export class TelegramService implements PlatformService {
   async publishPost(content: PublishContent, uploadedMediaIds: string[]): Promise<PublishResult> {
     if (!this.bot) throw new Error('Telegram bot not initialized');
 
-    const options: TelegramBot.SendMessageOptions = {};
     const platformOptions = content.options;
-
-    if (platformOptions.parse_mode) {
-      options.parse_mode = platformOptions.parse_mode as 'MarkdownV2' | 'HTML';
-    }
-    if (platformOptions.disable_web_page_preview) {
-      (options as any).disable_web_page_preview = true;
-    }
-    if (platformOptions.disable_notification) {
-      options.disable_notification = true;
-    }
+    const parseMode = platformOptions.parse_mode as 'MarkdownV2' | 'HTML' | undefined;
+    const disableNotification = !!platformOptions.disable_notification;
 
     // No media: send text message
-    if (uploadedMediaIds.length === 0) {
-      const result = await this.bot.sendMessage(this.channelId, content.text, options);
+    if (uploadedMediaIds.length === 0 || content.media.length === 0) {
+      const msgOpts: TelegramBot.SendMessageOptions = {};
+      if (parseMode) msgOpts.parse_mode = parseMode;
+      if (platformOptions.disable_web_page_preview) {
+        (msgOpts as any).disable_web_page_preview = true;
+      }
+      if (disableNotification) msgOpts.disable_notification = true;
+
+      const result = await this.bot.sendMessage(this.channelId, content.text, msgOpts);
       return { remotePostId: String(result.message_id) };
     }
 
-    // Determine media type from the first asset
-    const firstAsset = content.media[0];
-    if (!firstAsset) {
-      const result = await this.bot.sendMessage(this.channelId, content.text, options);
+    // Single media item: use sendPhoto/sendVideo with caption
+    if (uploadedMediaIds.length === 1) {
+      const asset = content.media[0];
+      const mediaPath = uploadedMediaIds[0];
+
+      if (asset.type === 'image') {
+        const result = await this.bot.sendPhoto(
+          this.channelId,
+          fs.createReadStream(mediaPath) as any,
+          {
+            caption: content.text || undefined,
+            parse_mode: parseMode,
+            disable_notification: disableNotification,
+          }
+        );
+        return { remotePostId: String(result.message_id) };
+      }
+
+      const result = await this.bot.sendVideo(
+        this.channelId,
+        fs.createReadStream(mediaPath) as any,
+        {
+          caption: content.text || undefined,
+          parse_mode: parseMode,
+          disable_notification: disableNotification,
+        }
+      );
       return { remotePostId: String(result.message_id) };
     }
 
-    if (firstAsset.type === 'image') {
-      const photoPath = uploadedMediaIds[0];
-      const result = await this.bot.sendPhoto(this.channelId, fs.createReadStream(photoPath) as any, {
-        caption: content.text,
-        parse_mode: options.parse_mode,
-        disable_notification: options.disable_notification,
-      });
-      return { remotePostId: String(result.message_id) };
-    }
+    // Multiple media: send as album via sendMediaGroup
+    // Caption goes on the first item only
+    const mediaGroupWithStreams = content.media.map((asset, i) => {
+      const mediaPath = uploadedMediaIds[i];
+      const item: Record<string, unknown> = {
+        type: asset.type === 'image' ? 'photo' : 'video',
+        media: fs.createReadStream(mediaPath),
+      };
+      if (i === 0 && content.text) {
+        item.caption = content.text;
+        if (parseMode) item.parse_mode = parseMode;
+      }
+      return item;
+    });
 
-    if (firstAsset.type === 'video') {
-      const videoPath = uploadedMediaIds[0];
-      const result = await this.bot.sendVideo(this.channelId, fs.createReadStream(videoPath) as any, {
-        caption: content.text,
-        parse_mode: options.parse_mode,
-        disable_notification: options.disable_notification,
-      });
-      return { remotePostId: String(result.message_id) };
-    }
+    const results = await (this.bot as any).sendMediaGroup(
+      this.channelId,
+      mediaGroupWithStreams,
+      { disable_notification: disableNotification }
+    );
 
-    // Fallback: text only
-    const result = await this.bot.sendMessage(this.channelId, content.text, options);
-    return { remotePostId: String(result.message_id) };
+    // sendMediaGroup returns an array of Messages; use the first message_id
+    const firstResult = Array.isArray(results) ? results[0] : results;
+    return { remotePostId: String(firstResult.message_id) };
   }
 
   mapError(error: unknown): PlatformError {

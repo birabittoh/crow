@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { postsRouter } from './posts';
 import { mediaRouter } from './media';
-import { getAvailablePlatforms } from '../platforms/registry';
+import { getAvailablePlatforms, getPlatformService } from '../platforms/registry';
 import { config } from '../config';
 
 export const apiRouter = Router();
@@ -17,8 +17,19 @@ apiRouter.get('/platforms', (_req, res) => {
 
 // Frontend config endpoint — exposes only safe, non-secret configuration
 apiRouter.get('/config', (_req, res) => {
+  const platforms = getAvailablePlatforms();
+
+  const platformOptions: Record<string, ReturnType<NonNullable<ReturnType<typeof getPlatformService>>['getOptionFields']>> = {};
+  for (const p of platforms) {
+    const service = getPlatformService(p);
+    if (service) {
+      platformOptions[p] = service.getOptionFields();
+    }
+  }
+
   res.json({
-    platforms: getAvailablePlatforms(),
+    platforms,
+    platformOptions,
     schedulerPollIntervalMs: config.schedulerPollIntervalMs,
     recurrentEventsUrl: config.recurrentEventsUrl || null,
   });

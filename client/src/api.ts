@@ -1,5 +1,15 @@
+export interface OptionField {
+  key: string;
+  label: string;
+  type: 'string' | 'boolean' | 'enum';
+  enumValues?: string[];
+  required?: boolean;
+  description?: string;
+}
+
 export interface AppConfig {
   platforms: string[];
+  platformOptions: Record<string, OptionField[]>;
   schedulerPollIntervalMs: number;
   recurrentEventsUrl: string | null;
 }

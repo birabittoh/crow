@@ -21,11 +21,29 @@ export interface PlatformError {
   retryable: boolean;
 }
 
+export interface OptionField {
+  /** Machine-readable key, e.g. "parse_mode" */
+  key: string;
+  /** Human-readable label, e.g. "Parse Mode" */
+  label: string;
+  /** Field type determines how the frontend renders it */
+  type: 'string' | 'boolean' | 'enum';
+  /** Available choices when type is "enum" */
+  enumValues?: string[];
+  /** Whether this field is required */
+  required?: boolean;
+  /** Short description shown as helper text */
+  description?: string;
+}
+
 export interface PlatformService {
   readonly platformName: string;
 
   /** Check if the platform has valid credentials and is available */
   isAvailable(): boolean;
+
+  /** Describe the platform-specific options this platform supports */
+  getOptionFields(): OptionField[];
 
   /** Validate post content against platform constraints before scheduling */
   validatePost(content: PublishContent): PlatformValidationError[];
