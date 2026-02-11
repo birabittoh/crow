@@ -1,0 +1,26 @@
+services:
+  crow:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Add other environment variables here or use an .env file
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data # Persist SQLite database
+    restart: always
+
+# Optional: Add PostgreSQL if you want to use it instead of SQLite
+#  db:
+#    image: postgres:15-alpine
+#    environment:
+#      - POSTGRES_USER=crow
+#      - POSTGRES_PASSWORD=crow
+#      - POSTGRES_DB=crow
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#
+#volumes:
+#  postgres_data:
