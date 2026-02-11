@@ -2,10 +2,29 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db';
 import { CreatePostSchema, UpdatePostSchema } from '../schemas/post';
-import { getAvailablePlatforms, getPlatformService } from '../platforms/registry';
-import { deleteFile } from '../storage/local';
+import { getAvailablePlatforms } from '../platforms/registry';
 
 export const postsRouter = Router();
+
+async function getPostMedia(postId: string | string[]) {
+  return db('media_assets')
+    .join('post_media', 'media_assets.id', 'post_media.media_asset_id')
+    .where('post_media.post_id', postId)
+    .orderBy('post_media.sort_order', 'asc')
+    .select('media_assets.*');
+}
+
+async function setPostMedia(trx: any, postId: string | string[], mediaIds: string[]) {
+  await trx('post_media').where('post_id', postId).delete();
+  for (let i = 0; i < mediaIds.length; i++) {
+    await trx('post_media').insert({
+      id: uuidv4(),
+      post_id: postId,
+      media_asset_id: mediaIds[i],
+      sort_order: i,
+    });
+  }
+}
 
 // List all posts
 postsRouter.get('/', async (_req: Request, res: Response) => {
@@ -15,7 +34,7 @@ postsRouter.get('/', async (_req: Request, res: Response) => {
     const postsWithTargets = await Promise.all(
       posts.map(async (post: any) => {
         const targets = await db('post_platform_targets').where('post_id', post.id);
-        const media = await db('media_assets').where('post_id', post.id);
+        const media = await getPostMedia(post.id);
         return { ...post, platform_targets: targets, media };
       })
     );
@@ -36,7 +55,7 @@ postsRouter.get('/:id', async (req: Request, res: Response) => {
     }
 
     const targets = await db('post_platform_targets').where('post_id', post.id);
-    const media = await db('media_assets').where('post_id', post.id);
+    const media = await getPostMedia(post.id);
 
     res.json({ ...post, platform_targets: targets, media });
   } catch (error: any) {
@@ -85,11 +104,16 @@ postsRouter.post('/', async (req: Request, res: Response) => {
           publish_status: 'pending',
         });
       }
+
+      // Link media assets to post
+      if (data.media_ids && data.media_ids.length > 0) {
+        await setPostMedia(trx, postId, data.media_ids);
+      }
     });
 
     const post = await db('posts').where('id', postId).first();
     const targets = await db('post_platform_targets').where('post_id', postId);
-    const media = await db('media_assets').where('post_id', postId);
+    const media = await getPostMedia(postId);
 
     res.status(201).json({ ...post, platform_targets: targets, media });
   } catch (error: any) {
@@ -143,11 +167,16 @@ postsRouter.put('/:id', async (req: Request, res: Response) => {
           });
         }
       }
+
+      // Update media links
+      if (data.media_ids !== undefined) {
+        await setPostMedia(trx, req.params.id, data.media_ids);
+      }
     });
 
     const updated = await db('posts').where('id', req.params.id).first();
     const targets = await db('post_platform_targets').where('post_id', req.params.id);
-    const media = await db('media_assets').where('post_id', req.params.id);
+    const media = await getPostMedia(req.params.id);
 
     res.json({ ...updated, platform_targets: targets, media });
   } catch (error: any) {
@@ -159,7 +188,7 @@ postsRouter.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete post
+// Delete post (media stays in library, only links are removed)
 postsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const post = await db('posts').where('id', req.params.id).first();
@@ -169,13 +198,8 @@ postsRouter.delete('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    // Delete associated media files
-    const mediaAssets = await db('media_assets').where('post_id', req.params.id);
-    for (const asset of mediaAssets) {
-      deleteFile(asset.storage_path);
-    }
-
-    // Cascade deletes handle DB cleanup
+    // Cascade deletes handle post_media and post_platform_targets cleanup
+    // Media files stay in the library
     await db('posts').where('id', req.params.id).delete();
 
     res.status(204).send();

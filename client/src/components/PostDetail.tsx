@@ -1,6 +1,7 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { useDeletePost } from '../hooks';
+import { getMediaUrl } from '../api';
 import type { Post } from '../api';
 
 interface PostDetailProps {
@@ -49,12 +50,20 @@ export default function PostDetail({ post, onClose }: PostDetailProps) {
         {post.media.length > 0 && (
           <div className="detail-row">
             <span className="detail-label">Media ({post.media.length})</span>
-            <div className="media-list">
+            <div className="media-preview-grid">
               {post.media.map((m) => (
-                <div key={m.id} className="media-item">
-                  <span className="badge badge-small">{m.type}</span>
-                  <span>{m.mime_type}</span>
-                  <span>{(m.size_bytes / 1024).toFixed(1)} KB</span>
+                <div key={m.id} className="media-preview-item">
+                  {m.type === 'image' ? (
+                    <img src={getMediaUrl(m)} alt="" className="media-preview-img" />
+                  ) : (
+                    <div className="media-preview-video">
+                      <span className="media-preview-video-icon">&#9654;</span>
+                      <span className="media-preview-filename">{m.original_filename || 'video'}</span>
+                    </div>
+                  )}
+                  <span className="media-preview-size">
+                    {(m.size_bytes / 1024).toFixed(0)} KB
+                  </span>
                 </div>
               ))}
             </div>

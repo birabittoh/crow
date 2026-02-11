@@ -16,6 +16,7 @@ export const CreatePostSchema = z.object({
     message: 'Invalid date format',
   }),
   platform_targets: z.array(CreatePlatformTargetSchema).min(1, 'At least one platform target is required'),
+  media_ids: z.array(z.string().uuid()).optional(),
 });
 
 export type CreatePost = z.infer<typeof CreatePostSchema>;
@@ -27,6 +28,7 @@ export const UpdatePostSchema = z.object({
     .refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date format' })
     .optional(),
   platform_targets: z.array(CreatePlatformTargetSchema).min(1).optional(),
+  media_ids: z.array(z.string().uuid()).optional(),
 });
 
 export type UpdatePost = z.infer<typeof UpdatePostSchema>;

@@ -56,3 +56,40 @@ export function useDeletePost() {
     },
   });
 }
+
+export function useMedia(filters?: { filter?: string }) {
+  return useQuery({
+    queryKey: ['media', filters],
+    queryFn: () => api.getMedia(filters),
+  });
+}
+
+export function useUploadMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => api.uploadMedia(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] });
+    },
+  });
+}
+
+export function useDeleteMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteMedia(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] });
+    },
+  });
+}
+
+export function useBulkDeleteMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => api.bulkDeleteMedia(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] });
+    },
+  });
+}

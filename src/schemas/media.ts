@@ -11,22 +11,18 @@ export const MediaTypeSchema = z.enum(['image', 'video']);
 
 export const MediaAssetSchema = z.object({
   id: z.string().uuid(),
-  post_id: z.string().uuid(),
+  post_id: z.string().uuid().nullable().optional(),
   type: MediaTypeSchema,
   storage_path: z.string(),
   mime_type: z.string(),
   size_bytes: z.number().int().positive(),
   duration_seconds: z.number().nullable().optional(),
+  file_hash: z.string().nullable().optional(),
+  original_filename: z.string().nullable().optional(),
   created_at: z.string(),
 });
 
 export type MediaAsset = z.infer<typeof MediaAssetSchema>;
-
-export const MediaUploadMetadataSchema = z.object({
-  post_id: z.string().uuid(),
-});
-
-export type MediaUploadMetadata = z.infer<typeof MediaUploadMetadataSchema>;
 
 export const OverrideMediaItemSchema = z.object({
   media_asset_id: z.string().uuid(),

@@ -12,23 +12,23 @@ interface PostWithTargets {
   scheduled_at_utc: string;
 }
 
-function resolveContent(
+async function resolveContent(
   baseContent: string,
   baseMedia: MediaAsset[],
   target: any
-): PublishContent {
+): Promise<PublishContent> {
   const text = target.override_content || baseContent;
 
   let media = baseMedia;
   if (target.override_media_json) {
     try {
       const overrideMedia = JSON.parse(target.override_media_json);
-      // If override media is specified, we'd need to look up those assets
-      // For now, use base media if override parsing fails
       if (Array.isArray(overrideMedia) && overrideMedia.length > 0) {
-        // Override media references media_asset_ids - would need DB lookup
-        // Simplified: use base media
-        media = baseMedia;
+        const mediaIds = overrideMedia.map((m: any) => m.media_asset_id);
+        const overrideAssets = await db('media_assets').whereIn('id', mediaIds);
+        if (overrideAssets.length > 0) {
+          media = overrideAssets;
+        }
       }
     } catch {
       media = baseMedia;
@@ -59,7 +59,7 @@ async function publishToTarget(
     return { success: false, error: `Platform ${platform} is not available`, errorCode: 'PLATFORM_UNAVAILABLE' };
   }
 
-  const content = resolveContent(post.base_content, baseMedia, target);
+  const content = await resolveContent(post.base_content, baseMedia, target);
 
   // Validate before publishing
   const validationErrors = service.validatePost(content);
@@ -90,7 +90,12 @@ export async function publishPost(postId: string): Promise<void> {
     .where('post_id', postId)
     .whereIn('publish_status', ['pending', 'failed']);
 
-  const baseMedia: MediaAsset[] = await db('media_assets').where('post_id', postId);
+  // Get base media via post_media join table
+  const baseMedia: MediaAsset[] = await db('media_assets')
+    .join('post_media', 'media_assets.id', 'post_media.media_asset_id')
+    .where('post_media.post_id', postId)
+    .orderBy('post_media.sort_order', 'asc')
+    .select('media_assets.*');
 
   const post = await db('posts').where('id', postId).first();
   if (!post) return;

@@ -3,9 +3,10 @@ import { useConfig } from './hooks';
 import Calendar from './components/Calendar';
 import PostForm from './components/PostForm';
 import PostDetail from './components/PostDetail';
+import MediaLibrary from './components/MediaLibrary';
 import type { Post } from './api';
 
-type View = 'calendar' | 'create' | 'detail';
+type View = 'calendar' | 'create' | 'detail' | 'media';
 
 export default function App() {
   const { data: config, isLoading, error } = useConfig();
@@ -33,6 +34,12 @@ export default function App() {
               <span key={p} className="badge">{p}</span>
             ))}
           </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setView('media')}
+          >
+            Media
+          </button>
           <button
             className="btn btn-primary"
             onClick={() => {
@@ -73,6 +80,9 @@ export default function App() {
             post={selectedPost}
             onClose={() => setView('calendar')}
           />
+        )}
+        {view === 'media' && (
+          <MediaLibrary onClose={() => setView('calendar')} />
         )}
       </main>
     </div>

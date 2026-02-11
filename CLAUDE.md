@@ -73,8 +73,9 @@ The Vite dev server runs on port 5173 and proxies `/api` requests to the backend
 
 Schema is in `migrations/001_initial_schema.ts`. Key tables:
 - `posts` - scheduled posts with status tracking
-- `media_assets` - uploaded images/videos
-- `post_platform_targets` - per-platform content overrides and publish status
+- `media_assets` - uploaded images/videos (with SHA-256 hash dedup, decoupled from posts)
+- `post_media` - many-to-many join between posts and media_assets (with sort_order)
+- `post_platform_targets` - per-platform content/media overrides and publish status
 - `publish_attempts` - audit trail of publish attempts
 
 Migrations run automatically on container startup. Use `npm run migrate` for local dev.

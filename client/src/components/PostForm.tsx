@@ -1,8 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
-import { useCreatePost } from '../hooks';
-import { api } from '../api';
-import type { OptionField, CharacterLimits } from '../api';
+import { useCreatePost, useMedia } from '../hooks';
+import { api, getMediaUrl } from '../api';
+import type { OptionField, CharacterLimits, MediaAsset } from '../api';
 
 interface PostFormProps {
   platforms: string[];
@@ -42,14 +42,9 @@ function validateContentLimits(
   return errors;
 }
 
-interface SelectedFile {
-  file: File;
-  preview: string;
-  type: 'image' | 'video';
-}
-
 export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, onClose }: PostFormProps) {
   const createPost = useCreatePost();
+  const { data: libraryMedia = [] } = useMedia();
 
   const defaultDateTime = initialDate
     ? format(initialDate, "yyyy-MM-dd'T'HH:mm")
@@ -60,11 +55,17 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platforms);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [options, setOptions] = useState<Record<string, Record<string, unknown>>>({});
-  const [files, setFiles] = useState<SelectedFile[]>([]);
+  const [selectedMedia, setSelectedMedia] = useState<MediaAsset[]>([]);
+  const [platformMediaOverrides, setPlatformMediaOverrides] = useState<Record<string, MediaAsset[]>>({});
+  const [platformMediaEnabled, setPlatformMediaEnabled] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState(platforms[0] || '');
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+  const [libraryPickerTarget, setLibraryPickerTarget] = useState<string | null>(null); // null = base, platform name = override
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const platformFileInputRef = useRef<HTMLInputElement>(null);
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms((prev) =>
@@ -82,45 +83,79 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     }));
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files;
-    if (!selected) return;
+  const handleFileUpload = async (files: FileList, target: string | null) => {
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isImage && !isVideo) continue;
 
-    const newFiles: SelectedFile[] = [];
-    for (let i = 0; i < selected.length; i++) {
-      const file = selected[i];
-      const isImage = file.type.startsWith('image/');
-      const isVideo = file.type.startsWith('video/');
-      if (!isImage && !isVideo) continue;
-
-      newFiles.push({
-        file,
-        preview: isImage ? URL.createObjectURL(file) : '',
-        type: isImage ? 'image' : 'video',
-      });
+        const asset = await api.uploadMedia(file);
+        if (target === null) {
+          setSelectedMedia((prev) => [...prev, asset]);
+        } else {
+          setPlatformMediaOverrides((prev) => ({
+            ...prev,
+            [target]: [...(prev[target] || []), asset],
+          }));
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
     }
+  };
 
-    setFiles((prev) => [...prev, ...newFiles]);
-    // Reset input so the same file can be selected again
+  const handleBaseFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) handleFileUpload(e.target.files, null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeFile = (index: number) => {
-    setFiles((prev) => {
-      const removed = prev[index];
-      if (removed.preview) URL.revokeObjectURL(removed.preview);
-      return prev.filter((_, i) => i !== index);
-    });
+  const handlePlatformFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && libraryPickerTarget) handleFileUpload(e.target.files, libraryPickerTarget);
+    if (platformFileInputRef.current) platformFileInputRef.current.value = '';
   };
 
+  const removeSelectedMedia = (index: number) => {
+    setSelectedMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removePlatformMedia = (platform: string, index: number) => {
+    setPlatformMediaOverrides((prev) => ({
+      ...prev,
+      [platform]: (prev[platform] || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const addFromLibrary = (asset: MediaAsset) => {
+    if (libraryPickerTarget === null) {
+      if (!selectedMedia.find((m) => m.id === asset.id)) {
+        setSelectedMedia((prev) => [...prev, asset]);
+      }
+    } else {
+      const current = platformMediaOverrides[libraryPickerTarget] || [];
+      if (!current.find((m) => m.id === asset.id)) {
+        setPlatformMediaOverrides((prev) => ({
+          ...prev,
+          [libraryPickerTarget]: [...current, asset],
+        }));
+      }
+    }
+  };
+
+  const hasMedia = selectedMedia.length > 0;
+
   const contentErrors = useMemo(
-    () => validateContentLimits(content, selectedPlatforms, overrides, platformLimits, files.length > 0),
-    [content, selectedPlatforms, overrides, platformLimits, files.length],
+    () => validateContentLimits(content, selectedPlatforms, overrides, platformLimits, hasMedia),
+    [content, selectedPlatforms, overrides, platformLimits, hasMedia],
   );
 
   const PLATFORMS_REQUIRING_MEDIA = ['instagram'];
   const mediaRequiredPlatforms = selectedPlatforms.filter(
-    (p) => PLATFORMS_REQUIRING_MEDIA.includes(p) && files.length === 0
+    (p) => PLATFORMS_REQUIRING_MEDIA.includes(p) && !hasMedia && !(platformMediaEnabled[p] && (platformMediaOverrides[p] || []).length > 0)
   );
 
   const hasContentErrors = contentErrors.length > 0 || mediaRequiredPlatforms.length > 0;
@@ -141,9 +176,10 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     setSubmitting(true);
 
     try {
-      const post = await createPost.mutateAsync({
+      await createPost.mutateAsync({
         base_content: content,
         scheduled_at_utc: new Date(scheduledAt).toISOString(),
+        media_ids: selectedMedia.map((m) => m.id),
         platform_targets: selectedPlatforms.map((p) => {
           const platformOpts = options[p];
           const cleanedOpts = platformOpts
@@ -154,19 +190,19 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               )
             : null;
 
+          const overrideMedia = platformMediaEnabled[p] && platformMediaOverrides[p]?.length
+            ? platformMediaOverrides[p].map((m) => ({ media_asset_id: m.id }))
+            : null;
+
           return {
             platform: p,
             override_content: overrides[p] || null,
+            override_media_json: overrideMedia,
             override_options_json:
               cleanedOpts && Object.keys(cleanedOpts).length > 0 ? cleanedOpts : null,
           };
         }),
       });
-
-      // Upload media files
-      for (const f of files) {
-        await api.uploadMedia(post.id, f.file);
-      }
 
       onClose();
     } catch (err: any) {
@@ -226,48 +262,57 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
           />
         </div>
 
-        {/* Media upload */}
+        {/* Media selection */}
         <div className="form-group">
           <label>Media</label>
           <div className="media-upload-area">
-            {files.length > 0 && (
+            {selectedMedia.length > 0 && (
               <div className="media-preview-grid">
-                {files.map((f, i) => (
-                  <div key={i} className="media-preview-item">
-                    {f.type === 'image' ? (
-                      <img src={f.preview} alt="" className="media-preview-img" />
+                {selectedMedia.map((m, i) => (
+                  <div key={m.id} className="media-preview-item">
+                    {m.type === 'image' ? (
+                      <img src={getMediaUrl(m)} alt="" className="media-preview-img" />
                     ) : (
                       <div className="media-preview-video">
                         <span className="media-preview-video-icon">&#9654;</span>
-                        <span className="media-preview-filename">{f.file.name}</span>
+                        <span className="media-preview-filename">{m.original_filename || 'video'}</span>
                       </div>
                     )}
                     <button
                       type="button"
                       className="media-remove-btn"
-                      onClick={() => removeFile(i)}
+                      onClick={() => removeSelectedMedia(i)}
                     >
                       &times;
                     </button>
                     <span className="media-preview-size">
-                      {(f.file.size / 1024).toFixed(0)} KB
+                      {(m.size_bytes / 1024).toFixed(0)} KB
                     </span>
                   </div>
                 ))}
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,video/mp4"
-              multiple
-              onChange={handleFileSelect}
-              className="media-file-input"
-              id="media-upload"
-            />
-            <label htmlFor="media-upload" className="btn btn-ghost media-upload-btn">
-              + Add Image or Video
-            </label>
+            <div className="media-action-buttons">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,video/mp4"
+                multiple
+                onChange={handleBaseFileSelect}
+                className="media-file-input"
+                id="media-upload"
+              />
+              <label htmlFor="media-upload" className="btn btn-ghost media-upload-btn">
+                {uploading ? 'Uploading...' : '+ Upload New'}
+              </label>
+              <button
+                type="button"
+                className="btn btn-ghost media-upload-btn"
+                onClick={() => { setLibraryPickerTarget(null); setShowLibraryPicker(true); }}
+              >
+                Choose from Library
+              </button>
+            </div>
           </div>
         </div>
 
@@ -312,8 +357,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                   {isEnabled && (() => {
                     const limits = platformLimits[p];
                     const effectiveText = overrides[p] || content;
+                    const effectiveHasMedia = platformMediaEnabled[p]
+                      ? (platformMediaOverrides[p] || []).length > 0
+                      : hasMedia;
                     const maxChars = limits
-                      ? (files.length > 0 && limits.maxCharsWithMedia != null ? limits.maxCharsWithMedia : limits.maxChars)
+                      ? (effectiveHasMedia && limits.maxCharsWithMedia != null ? limits.maxCharsWithMedia : limits.maxChars)
                       : null;
                     const isOverLimit = maxChars != null && effectiveText.length > maxChars;
 
@@ -335,6 +383,54 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                             {effectiveText.length}/{maxChars} characters
                             {!overrides[p] && isOverLimit && ' (using base content)'}
                           </span>
+                        )}
+                      </div>
+
+                      {/* Per-platform media override */}
+                      <div className="form-group">
+                        <label className="platform-enable-toggle">
+                          <input
+                            type="checkbox"
+                            checked={!!platformMediaEnabled[p]}
+                            onChange={() => setPlatformMediaEnabled((prev) => ({ ...prev, [p]: !prev[p] }))}
+                          />
+                          <span>Override media for {p}</span>
+                        </label>
+                        {platformMediaEnabled[p] && (
+                          <div className="media-upload-area platform-media-override">
+                            {(platformMediaOverrides[p] || []).length > 0 && (
+                              <div className="media-preview-grid">
+                                {(platformMediaOverrides[p] || []).map((m, i) => (
+                                  <div key={m.id} className="media-preview-item">
+                                    {m.type === 'image' ? (
+                                      <img src={getMediaUrl(m)} alt="" className="media-preview-img" />
+                                    ) : (
+                                      <div className="media-preview-video">
+                                        <span className="media-preview-video-icon">&#9654;</span>
+                                        <span className="media-preview-filename">{m.original_filename || 'video'}</span>
+                                      </div>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="media-remove-btn"
+                                      onClick={() => removePlatformMedia(p, i)}
+                                    >
+                                      &times;
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="media-action-buttons">
+                              <button
+                                type="button"
+                                className="btn btn-ghost media-upload-btn"
+                                onClick={() => { setLibraryPickerTarget(p); setShowLibraryPicker(true); }}
+                              >
+                                Choose from Library
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
 
@@ -362,12 +458,115 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={submitting || hasContentErrors}
+            disabled={submitting || hasContentErrors || uploading}
           >
             {submitting ? 'Scheduling...' : 'Schedule Post'}
           </button>
         </div>
       </form>
+
+      {/* Media Library Picker Modal */}
+      {showLibraryPicker && (
+        <MediaLibraryPicker
+          media={libraryMedia}
+          onSelect={addFromLibrary}
+          onUpload={async (file) => {
+            const asset = await api.uploadMedia(file);
+            addFromLibrary(asset);
+          }}
+          onClose={() => setShowLibraryPicker(false)}
+          alreadySelected={
+            libraryPickerTarget === null
+              ? selectedMedia.map((m) => m.id)
+              : (platformMediaOverrides[libraryPickerTarget] || []).map((m) => m.id)
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function MediaLibraryPicker({
+  media,
+  onSelect,
+  onUpload,
+  onClose,
+  alreadySelected,
+}: {
+  media: MediaAsset[];
+  onSelect: (asset: MediaAsset) => void;
+  onUpload: (file: File) => Promise<void>;
+  onClose: () => void;
+  alreadySelected: string[];
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    setUploading(true);
+    try {
+      for (let i = 0; i < e.target.files.length; i++) {
+        await onUpload(e.target.files[i]);
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content media-picker-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Media Library</h3>
+          <button className="btn btn-ghost" onClick={onClose}>&times;</button>
+        </div>
+        <div className="media-picker-actions">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,video/mp4"
+            multiple
+            onChange={handleUpload}
+            className="media-file-input"
+            id="picker-upload"
+          />
+          <label htmlFor="picker-upload" className="btn btn-ghost">
+            {uploading ? 'Uploading...' : '+ Upload New'}
+          </label>
+        </div>
+        <div className="media-picker-grid">
+          {media.length === 0 && (
+            <div className="media-picker-empty">No media in library. Upload some files first.</div>
+          )}
+          {media.map((asset) => {
+            const isSelected = alreadySelected.includes(asset.id);
+            return (
+              <button
+                key={asset.id}
+                type="button"
+                className={`media-picker-item ${isSelected ? 'selected' : ''}`}
+                onClick={() => { if (!isSelected) onSelect(asset); }}
+                disabled={isSelected}
+              >
+                {asset.type === 'image' ? (
+                  <img src={getMediaUrl(asset)} alt="" className="media-picker-thumb" />
+                ) : (
+                  <div className="media-picker-video-thumb">
+                    <span>&#9654;</span>
+                  </div>
+                )}
+                <span className="media-picker-name">{asset.original_filename || asset.id.slice(0, 8)}</span>
+                {isSelected && <span className="media-picker-check">&#10003;</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
     </div>
   );
 }

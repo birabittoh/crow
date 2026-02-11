@@ -45,13 +45,16 @@ export interface PlatformTarget {
 
 export interface MediaAsset {
   id: string;
-  post_id: string;
+  post_id: string | null;
   type: 'image' | 'video';
   storage_path: string;
   mime_type: string;
   size_bytes: number;
   duration_seconds: number | null;
+  file_hash: string | null;
+  original_filename: string | null;
   created_at: string;
+  usage_count?: number;
 }
 
 export interface Post {
@@ -71,8 +74,10 @@ export interface CreatePostPayload {
   platform_targets: {
     platform: string;
     override_content?: string | null;
+    override_media_json?: { media_asset_id: string }[] | null;
     override_options_json?: Record<string, unknown> | null;
   }[];
+  media_ids?: string[];
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -91,6 +96,13 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export function getMediaUrl(asset: MediaAsset): string {
+  // storage_path is an absolute path like /path/to/uploads/uuid.ext
+  // Extract just the filename to build the URL
+  const filename = asset.storage_path.split('/').pop() || asset.storage_path.split('\\').pop();
+  return `/uploads/${filename}`;
+}
+
 export const api = {
   getConfig: () => apiFetch<AppConfig>('/api/config'),
   getRecurrentEvents: (url: string) =>
@@ -106,13 +118,24 @@ export const api = {
     apiFetch<Post>(`/api/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePost: (id: string) =>
     apiFetch<void>(`/api/posts/${id}`, { method: 'DELETE' }),
-  uploadMedia: (postId: string, file: File) => {
+
+  // Media library
+  getMedia: (filters?: { filter?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.filter) params.set('filter', filters.filter);
+    const qs = params.toString();
+    return apiFetch<MediaAsset[]>(`/api/media${qs ? `?${qs}` : ''}`);
+  },
+  uploadMedia: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('post_id', postId);
     return fetch('/api/media/upload', { method: 'POST', body: formData }).then((r) => {
       if (!r.ok) throw new Error('Upload failed');
       return r.json() as Promise<MediaAsset>;
     });
   },
+  deleteMedia: (id: string) =>
+    apiFetch<void>(`/api/media/${id}`, { method: 'DELETE' }),
+  bulkDeleteMedia: (ids: string[]) =>
+    apiFetch<void>('/api/media/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
 };

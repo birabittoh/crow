@@ -9,6 +9,10 @@ const app = express();
 
 app.use(express.json());
 
+// Serve uploaded media files
+const uploadsPath = path.resolve(process.env.MEDIA_STORAGE_PATH || './uploads');
+app.use('/uploads', express.static(uploadsPath));
+
 // API routes
 app.use('/api', apiRouter);
 
