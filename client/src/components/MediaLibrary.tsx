@@ -1,15 +1,27 @@
 import React, { useState, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useMedia, useUploadMedia, useDeleteMedia, useBulkDeleteMedia } from '../hooks';
-import { getMediaUrl } from '../api';
+import { getMediaUrl, ApiError } from '../api';
 import type { MediaAsset } from '../api';
 
 type FilterMode = 'all' | 'scheduled' | 'posted' | 'unused';
 
-export default function MediaLibrary({ onClose }: { onClose: () => void }) {
+interface ScheduledPostRef {
+  id: string;
+  base_content: string;
+  scheduled_at_utc: string;
+  status: string;
+}
+
+interface BlockedInfo {
+  scheduledPosts: ScheduledPostRef[];
+}
+
+export default function MediaLibrary({ onClose, onNavigateToPost }: { onClose: () => void; onNavigateToPost?: (postId: string) => void }) {
   const [filter, setFilter] = useState<FilterMode>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [blockedInfo, setBlockedInfo] = useState<BlockedInfo | null>(null);
 
   const filterParam = filter === 'all' ? undefined : { filter };
   const { data: media = [], isLoading } = useMedia(filterParam);
@@ -45,18 +57,27 @@ export default function MediaLibrary({ onClose }: { onClose: () => void }) {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    await bulkDelete.mutateAsync(Array.from(selectedIds));
-    setSelectedIds(new Set());
-    setConfirmDelete(false);
-  };
-
-  const handleSingleDelete = async (id: string) => {
-    await deleteMedia.mutateAsync(id);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    try {
+      await bulkDelete.mutateAsync(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setConfirmDelete(false);
+      setBlockedInfo(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Collect all unique scheduled posts from blocked items
+        const posts: ScheduledPostRef[] = [];
+        const seenIds = new Set<string>();
+        for (const b of err.body.blocked || []) {
+          for (const p of b.posts || []) {
+            if (!seenIds.has(p.id)) {
+              seenIds.add(p.id);
+              posts.push(p);
+            }
+          }
+        }
+        setBlockedInfo({ scheduledPosts: posts });
+      }
+    }
   };
 
   return (
@@ -99,7 +120,7 @@ export default function MediaLibrary({ onClose }: { onClose: () => void }) {
           {selectedIds.size > 0 && (
             <button
               className="btn btn-danger"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => { setBlockedInfo(null); setConfirmDelete(true); }}
             >
               Delete ({selectedIds.size})
             </button>
@@ -158,19 +179,55 @@ export default function MediaLibrary({ onClose }: { onClose: () => void }) {
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
-        <div className="modal-overlay" onClick={() => setConfirmDelete(false)}>
+        <div className="modal-overlay" onClick={() => { setConfirmDelete(false); setBlockedInfo(null); }}>
           <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Delete {selectedIds.size} file{selectedIds.size !== 1 ? 's' : ''}?</h3>
-            <p>This will permanently delete the selected files and remove them from any posts they're attached to.</p>
+
+            {blockedInfo ? (
+              <div className="blocked-delete-info">
+                <p>Cannot delete — the following scheduled posts use the selected media:</p>
+                <ul className="blocked-post-list">
+                  {blockedInfo.scheduledPosts.map((post) => (
+                    <li key={post.id}>
+                      <button
+                        type="button"
+                        className="blocked-post-link"
+                        onClick={() => {
+                          setConfirmDelete(false);
+                          setBlockedInfo(null);
+                          onNavigateToPost?.(post.id);
+                        }}
+                      >
+                        <span className="blocked-post-content">
+                          {post.base_content.length > 60
+                            ? post.base_content.slice(0, 60) + '...'
+                            : post.base_content}
+                        </span>
+                        <span className="blocked-post-date">
+                          {format(parseISO(post.scheduled_at_utc), 'MMM d, yyyy HH:mm')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p>This will permanently delete the selected files and remove them from any posts they're attached to.</p>
+            )}
+
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button
-                className="btn btn-danger"
-                onClick={handleBulkDelete}
-                disabled={bulkDelete.isPending}
-              >
-                {bulkDelete.isPending ? 'Deleting...' : 'Delete'}
+              <button className="btn btn-ghost" onClick={() => { setConfirmDelete(false); setBlockedInfo(null); }}>
+                {blockedInfo ? 'Close' : 'Cancel'}
               </button>
+              {!blockedInfo && (
+                <button
+                  className="btn btn-danger"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDelete.isPending}
+                >
+                  {bulkDelete.isPending ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
             </div>
           </div>
         </div>

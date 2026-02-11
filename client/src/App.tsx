@@ -4,6 +4,7 @@ import Calendar from './components/Calendar';
 import PostForm from './components/PostForm';
 import PostDetail from './components/PostDetail';
 import MediaLibrary from './components/MediaLibrary';
+import { api } from './api';
 import type { Post } from './api';
 
 type View = 'calendar' | 'create' | 'detail' | 'media';
@@ -82,7 +83,18 @@ export default function App() {
           />
         )}
         {view === 'media' && (
-          <MediaLibrary onClose={() => setView('calendar')} />
+          <MediaLibrary
+            onClose={() => setView('calendar')}
+            onNavigateToPost={async (postId) => {
+              try {
+                const post = await api.getPost(postId);
+                setSelectedPost(post);
+                setView('detail');
+              } catch {
+                setView('calendar');
+              }
+            }}
+          />
         )}
       </main>
     </div>

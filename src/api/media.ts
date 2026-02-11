@@ -160,12 +160,37 @@ mediaRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
+async function getScheduledPostsForMedia(mediaAssetId: string | string[]) {
+  return db('posts')
+    .join('post_media', 'posts.id', 'post_media.post_id')
+    .where('post_media.media_asset_id', mediaAssetId)
+    .whereIn('posts.status', ['scheduled', 'publishing'])
+    .select('posts.id', 'posts.base_content', 'posts.scheduled_at_utc', 'posts.status');
+}
+
 // Bulk delete media assets (POST because DELETE with body is unreliable)
 mediaRouter.post('/bulk-delete', async (req: Request, res: Response) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
       res.status(400).json({ error: 'ids array is required' });
+      return;
+    }
+
+    // Check for scheduled posts blocking any of the assets
+    const blocked: { media_id: string; posts: any[] }[] = [];
+    for (const id of ids) {
+      const scheduledPosts = await getScheduledPostsForMedia(id);
+      if (scheduledPosts.length > 0) {
+        blocked.push({ media_id: id, posts: scheduledPosts });
+      }
+    }
+
+    if (blocked.length > 0) {
+      res.status(409).json({
+        error: 'Some media files are attached to scheduled posts and cannot be deleted',
+        blocked,
+      });
       return;
     }
 
@@ -188,6 +213,16 @@ mediaRouter.delete('/:id', async (req: Request, res: Response) => {
     const asset = await db('media_assets').where('id', req.params.id).first();
     if (!asset) {
       res.status(404).json({ error: 'Media asset not found' });
+      return;
+    }
+
+    // Block deletion if attached to scheduled posts
+    const scheduledPosts = await getScheduledPostsForMedia(req.params.id);
+    if (scheduledPosts.length > 0) {
+      res.status(409).json({
+        error: 'This media is attached to scheduled posts and cannot be deleted',
+        scheduled_posts: scheduledPosts,
+      });
       return;
     }
 
