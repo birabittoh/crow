@@ -54,7 +54,8 @@ Refer to [CREDENTIALS.md](./CREDENTIALS.md) for a guide on how to obtain these k
 
 ### Local Development
 1. Install dependencies: `npm install`
-2. Run migrations: `npx knex migrate:latest --knexfile src/db/knexfile.ts`
+2. Run migrations: `npm run migrate`
+   - *Note: Do not use `npx knex` directly, as it may fail to recognize `.ts` files in this ESM project. Use the provided npm scripts instead.*
 3. Start the dev server: `npm run dev`
 
 ### Docker

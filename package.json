@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "migrate": "tsx node_modules/knex/bin/cli.js migrate:latest --knexfile src/db/knexfile.ts",
-    "migrate:make": "tsx node_modules/knex/bin/cli.js migrate:make --knexfile src/db/knexfile.ts -x ts"
+    "migrate:make": "tsx node_modules/knex/bin/cli.js migrate:make --knexfile src/db/knexfile.ts -x ts",
+    "knex": "tsx node_modules/knex/bin/cli.js"
   },
   "dependencies": {
     "@atproto/api": "^0.13.24",
