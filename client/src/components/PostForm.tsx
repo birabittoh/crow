@@ -1,14 +1,45 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useCreatePost } from '../hooks';
 import { api } from '../api';
-import type { OptionField } from '../api';
+import type { OptionField, CharacterLimits } from '../api';
 
 interface PostFormProps {
   platforms: string[];
   platformOptions: Record<string, OptionField[]>;
+  platformLimits: Record<string, CharacterLimits>;
   initialDate: Date | null;
   onClose: () => void;
+}
+
+interface PlatformValidationError {
+  platform: string;
+  message: string;
+}
+
+function validateContentLimits(
+  content: string,
+  selectedPlatforms: string[],
+  overrides: Record<string, string>,
+  platformLimits: Record<string, CharacterLimits>,
+  hasMedia: boolean,
+): PlatformValidationError[] {
+  const errors: PlatformValidationError[] = [];
+  for (const platform of selectedPlatforms) {
+    const limits = platformLimits[platform];
+    if (!limits) continue;
+    const text = overrides[platform] || content;
+    const maxChars = hasMedia && limits.maxCharsWithMedia != null
+      ? limits.maxCharsWithMedia
+      : limits.maxChars;
+    if (text.length > maxChars) {
+      errors.push({
+        platform,
+        message: `${text.length}/${maxChars} characters`,
+      });
+    }
+  }
+  return errors;
 }
 
 interface SelectedFile {
@@ -17,7 +48,7 @@ interface SelectedFile {
   type: 'image' | 'video';
 }
 
-export default function PostForm({ platforms, platformOptions, initialDate, onClose }: PostFormProps) {
+export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, onClose }: PostFormProps) {
   const createPost = useCreatePost();
 
   const defaultDateTime = initialDate
@@ -81,6 +112,12 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
       return prev.filter((_, i) => i !== index);
     });
   };
+
+  const contentErrors = useMemo(
+    () => validateContentLimits(content, selectedPlatforms, overrides, platformLimits, files.length > 0),
+    [content, selectedPlatforms, overrides, platformLimits, files.length],
+  );
+  const hasContentErrors = contentErrors.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +189,16 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
             placeholder="What do you want to post?"
             className="form-textarea"
           />
-          <span className="char-count">{content.length} characters</span>
+          <span className={`char-count ${hasContentErrors ? 'char-count-error' : ''}`}>{content.length} characters</span>
+          {contentErrors.length > 0 && (
+            <div className="content-limit-errors">
+              {contentErrors.map((err) => (
+                <span key={err.platform} className="content-limit-error">
+                  {err.platform}: {err.message}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -248,7 +294,15 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
                     <span>Post on {p}</span>
                   </label>
 
-                  {isEnabled && (
+                  {isEnabled && (() => {
+                    const limits = platformLimits[p];
+                    const effectiveText = overrides[p] || content;
+                    const maxChars = limits
+                      ? (files.length > 0 && limits.maxCharsWithMedia != null ? limits.maxCharsWithMedia : limits.maxChars)
+                      : null;
+                    const isOverLimit = maxChars != null && effectiveText.length > maxChars;
+
+                    return (
                     <div className="platform-tab-fields">
                       <div className="form-group">
                         <label>Override content (optional)</label>
@@ -259,8 +313,14 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
                           }
                           rows={2}
                           placeholder={`Custom content for ${p}...`}
-                          className="form-textarea form-textarea-small"
+                          className={`form-textarea form-textarea-small ${isOverLimit ? 'form-textarea-error' : ''}`}
                         />
+                        {maxChars != null && (
+                          <span className={`char-count ${isOverLimit ? 'char-count-error' : ''}`}>
+                            {effectiveText.length}/{maxChars} characters
+                            {!overrides[p] && isOverLimit && ' (using base content)'}
+                          </span>
+                        )}
                       </div>
 
                       {fields.map((field) => (
@@ -272,7 +332,8 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
                         />
                       ))}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -286,7 +347,7 @@ export default function PostForm({ platforms, platformOptions, initialDate, onCl
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={submitting}
+            disabled={submitting || hasContentErrors}
           >
             {submitting ? 'Scheduling...' : 'Schedule Post'}
           </button>

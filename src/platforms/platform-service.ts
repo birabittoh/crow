@@ -36,6 +36,13 @@ export interface OptionField {
   description?: string;
 }
 
+export interface CharacterLimits {
+  /** Max characters for text-only posts */
+  maxChars: number;
+  /** Max characters when media is attached (if different from maxChars) */
+  maxCharsWithMedia?: number;
+}
+
 export interface PlatformService {
   readonly platformName: string;
 
@@ -44,6 +51,9 @@ export interface PlatformService {
 
   /** Describe the platform-specific options this platform supports */
   getOptionFields(): OptionField[];
+
+  /** Return the character limits for this platform */
+  getCharacterLimits(): CharacterLimits;
 
   /** Validate post content against platform constraints before scheduling */
   validatePost(content: PublishContent): PlatformValidationError[];

@@ -7,9 +7,15 @@ export interface OptionField {
   description?: string;
 }
 
+export interface CharacterLimits {
+  maxChars: number;
+  maxCharsWithMedia?: number;
+}
+
 export interface AppConfig {
   platforms: string[];
   platformOptions: Record<string, OptionField[]>;
+  platformLimits: Record<string, CharacterLimits>;
   schedulerPollIntervalMs: number;
   recurrentEventsUrl: string | null;
 }

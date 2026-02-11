@@ -523,6 +523,30 @@ body {
   text-align: right;
 }
 
+.char-count-error {
+  color: #e53e3e;
+  font-weight: 600;
+}
+
+.content-limit-errors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.content-limit-error {
+  font-size: 0.75rem;
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.form-textarea-error {
+  border-color: #e53e3e !important;
+}
+
 /* Media upload */
 .media-upload-area {
   display: flex;

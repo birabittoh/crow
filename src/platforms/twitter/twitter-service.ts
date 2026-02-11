@@ -6,6 +6,7 @@ import {
   PlatformValidationError,
   PlatformError,
   OptionField,
+  CharacterLimits,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -58,6 +59,10 @@ export class TwitterService implements PlatformService {
         description: 'ID of the tweet to quote',
       },
     ];
+  }
+
+  getCharacterLimits(): CharacterLimits {
+    return { maxChars: TWITTER_MAX_CHARS };
   }
 
   validatePost(content: PublishContent): PlatformValidationError[] {

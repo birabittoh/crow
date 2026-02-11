@@ -6,6 +6,7 @@ import {
   PlatformValidationError,
   PlatformError,
   OptionField,
+  CharacterLimits,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -59,6 +60,13 @@ export class TelegramService implements PlatformService {
         description: 'Sends the message silently',
       },
     ];
+  }
+
+  getCharacterLimits(): CharacterLimits {
+    return {
+      maxChars: TELEGRAM_MAX_MESSAGE_LENGTH,
+      maxCharsWithMedia: TELEGRAM_MAX_CAPTION_LENGTH,
+    };
   }
 
   validatePost(content: PublishContent): PlatformValidationError[] {

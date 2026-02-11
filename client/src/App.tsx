@@ -63,6 +63,7 @@ export default function App() {
           <PostForm
             platforms={config?.platforms || []}
             platformOptions={config?.platformOptions || {}}
+            platformLimits={config?.platformLimits || {}}
             initialDate={selectedDate}
             onClose={() => setView('calendar')}
           />
