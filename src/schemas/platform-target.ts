@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { TwitterOptionsSchema, TelegramOptionsSchema } from './platform-options';
+import { TwitterOptionsSchema, TelegramOptionsSchema, InstagramOptionsSchema, FacebookOptionsSchema, MastodonOptionsSchema, BlueskyOptionsSchema } from './platform-options';
 import { OverrideMediaSchema } from './media';
 
-export const PlatformSchema = z.enum(['twitter', 'telegram']);
+export const PlatformSchema = z.enum(['twitter', 'telegram', 'instagram', 'facebook', 'mastodon', 'bluesky']);
 export type Platform = z.infer<typeof PlatformSchema>;
 
 export const PublishStatusSchema = z.enum(['pending', 'publishing', 'published', 'failed']);
@@ -26,9 +26,37 @@ export const CreateTelegramTargetSchema = z.object({
   override_options_json: TelegramOptionsSchema.nullable().optional(),
 });
 
+export const CreateInstagramTargetSchema = z.object({
+  ...BaseTargetFields,
+  platform: z.literal('instagram'),
+  override_options_json: InstagramOptionsSchema.nullable().optional(),
+});
+
+export const CreateFacebookTargetSchema = z.object({
+  ...BaseTargetFields,
+  platform: z.literal('facebook'),
+  override_options_json: FacebookOptionsSchema.nullable().optional(),
+});
+
+export const CreateMastodonTargetSchema = z.object({
+  ...BaseTargetFields,
+  platform: z.literal('mastodon'),
+  override_options_json: MastodonOptionsSchema.nullable().optional(),
+});
+
+export const CreateBlueskyTargetSchema = z.object({
+  ...BaseTargetFields,
+  platform: z.literal('bluesky'),
+  override_options_json: BlueskyOptionsSchema.nullable().optional(),
+});
+
 export const CreatePlatformTargetSchema = z.discriminatedUnion('platform', [
   CreateTwitterTargetSchema,
   CreateTelegramTargetSchema,
+  CreateInstagramTargetSchema,
+  CreateFacebookTargetSchema,
+  CreateMastodonTargetSchema,
+  CreateBlueskyTargetSchema,
 ]);
 
 export type CreatePlatformTarget = z.infer<typeof CreatePlatformTargetSchema>;

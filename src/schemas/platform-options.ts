@@ -15,9 +15,39 @@ export const TelegramOptionsSchema = z.object({
 
 export type TelegramOptions = z.infer<typeof TelegramOptionsSchema>;
 
+export const InstagramOptionsSchema = z.object({
+  location_id: z.string().optional(),
+});
+
+export type InstagramOptions = z.infer<typeof InstagramOptionsSchema>;
+
+export const FacebookOptionsSchema = z.object({
+  link: z.string().optional(),
+});
+
+export type FacebookOptions = z.infer<typeof FacebookOptionsSchema>;
+
+export const MastodonOptionsSchema = z.object({
+  visibility: z.enum(['public', 'unlisted', 'private', 'direct']).optional(),
+  spoiler_text: z.string().optional(),
+  sensitive: z.boolean().optional(),
+});
+
+export type MastodonOptions = z.infer<typeof MastodonOptionsSchema>;
+
+export const BlueskyOptionsSchema = z.object({
+  langs: z.string().optional(),
+});
+
+export type BlueskyOptions = z.infer<typeof BlueskyOptionsSchema>;
+
 export const PlatformOptionsSchema = z.discriminatedUnion('platform', [
   z.object({ platform: z.literal('twitter'), options: TwitterOptionsSchema }),
   z.object({ platform: z.literal('telegram'), options: TelegramOptionsSchema }),
+  z.object({ platform: z.literal('instagram'), options: InstagramOptionsSchema }),
+  z.object({ platform: z.literal('facebook'), options: FacebookOptionsSchema }),
+  z.object({ platform: z.literal('mastodon'), options: MastodonOptionsSchema }),
+  z.object({ platform: z.literal('bluesky'), options: BlueskyOptionsSchema }),
 ]);
 
 export type PlatformOptions = z.infer<typeof PlatformOptionsSchema>;

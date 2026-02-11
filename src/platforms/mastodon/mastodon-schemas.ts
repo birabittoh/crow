@@ -1,0 +1,4 @@
+export const MASTODON_MAX_CHARS = 500;
+export const MASTODON_MAX_IMAGES = 4;
+export const MASTODON_MAX_IMAGE_SIZE = 16 * 1024 * 1024; // 16 MB
+export const MASTODON_MAX_VIDEO_SIZE = 99 * 1024 * 1024; // 99 MB

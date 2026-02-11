@@ -117,7 +117,13 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     () => validateContentLimits(content, selectedPlatforms, overrides, platformLimits, files.length > 0),
     [content, selectedPlatforms, overrides, platformLimits, files.length],
   );
-  const hasContentErrors = contentErrors.length > 0;
+
+  const PLATFORMS_REQUIRING_MEDIA = ['instagram'];
+  const mediaRequiredPlatforms = selectedPlatforms.filter(
+    (p) => PLATFORMS_REQUIRING_MEDIA.includes(p) && files.length === 0
+  );
+
+  const hasContentErrors = contentErrors.length > 0 || mediaRequiredPlatforms.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +201,15 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               {contentErrors.map((err) => (
                 <span key={err.platform} className="content-limit-error">
                   {err.platform}: {err.message}
+                </span>
+              ))}
+            </div>
+          )}
+          {mediaRequiredPlatforms.length > 0 && (
+            <div className="content-limit-errors">
+              {mediaRequiredPlatforms.map((p) => (
+                <span key={p} className="content-limit-error">
+                  {p}: requires at least one image or video
                 </span>
               ))}
             </div>
