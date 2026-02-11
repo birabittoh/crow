@@ -230,6 +230,10 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
+  const hasAnyEvents = days.some((d) =>
+    recurrentEvents.some((e) => isRecurrentOnDate(e, d))
+  );
+
   return (
     <div className="week-view">
       <div className="week-header">
@@ -241,6 +245,23 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
           </div>
         ))}
       </div>
+      {hasAnyEvents && (
+        <div className="week-allday-row">
+          <div className="time-gutter allday-gutter">All day</div>
+          {days.map((d) => {
+            const dayEvents = recurrentEvents.filter((e) => isRecurrentOnDate(e, d));
+            return (
+              <div key={d.toISOString()} className="week-allday-cell">
+                {dayEvents.map((ev) => (
+                  <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
+                    {ev.name}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="week-body">
         {hours.map((hour) => (
           <div key={hour} className="week-row">
@@ -251,8 +272,6 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
                 const pDate = parseISO(p.scheduled_at_utc);
                 return isSameDay(pDate, d) && getHours(pDate) === hour;
               });
-              const cellEvents =
-                hour === 0 ? recurrentEvents.filter((e) => isRecurrentOnDate(e, d)) : [];
 
               return (
                 <div
@@ -260,11 +279,6 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
                   className="week-cell"
                   onClick={() => onSelectDate(cellTime)}
                 >
-                  {cellEvents.map((ev) => (
-                    <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
-                      {ev.name}
-                    </div>
-                  ))}
                   {cellPosts.map((p) => (
                     <div
                       key={p.id}
