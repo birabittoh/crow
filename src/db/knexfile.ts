@@ -1,5 +1,10 @@
 import type { Knex } from "knex";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.join(__dirname, "../../");
 
 const config: { [key: string]: Knex.Config } = {
   development: {
@@ -13,11 +18,11 @@ const config: { [key: string]: Knex.Config } = {
           database: process.env.POSTGRES_DB,
         }
       : {
-          filename: process.env.SQLITE_FILENAME || path.join(process.cwd(), "crow.sqlite"),
+          filename: process.env.SQLITE_FILENAME || path.join(rootDir, "crow.sqlite"),
         },
     useNullAsDefault: true,
     migrations: {
-      directory: "./migrations",
+      directory: path.join(__dirname, "migrations"),
       extension: "ts",
     },
   },
@@ -33,11 +38,11 @@ const config: { [key: string]: Knex.Config } = {
           ssl: process.env.POSTGRES_SSL === "true" ? { rejectUnauthorized: false } : false,
         }
       : {
-          filename: process.env.SQLITE_FILENAME || path.join(process.cwd(), "crow.sqlite"),
+          filename: process.env.SQLITE_FILENAME || path.join(rootDir, "crow.sqlite"),
         },
     useNullAsDefault: true,
     migrations: {
-      directory: "./migrations",
+      directory: path.join(__dirname, "migrations"),
       extension: "ts",
     },
   },

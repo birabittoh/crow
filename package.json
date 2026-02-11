@@ -1,58 +1,47 @@
 {
-  "name": "app",
+  "name": "crow",
   "version": "1.0.0",
-  "description": "",
+  "description": "Social Media Scheduler",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate": "knex migrate:latest",
-    "migrate:make": "knex migrate:make"
+    "migrate": "tsx node_modules/knex/bin/cli.js migrate:latest --knexfile src/db/knexfile.ts",
+    "migrate:make": "tsx node_modules/knex/bin/cli.js migrate:make --knexfile src/db/knexfile.ts -x ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/birabittoh/crow.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/birabittoh/crow/issues"
-  },
-  "homepage": "https://github.com/birabittoh/crow#readme",
   "dependencies": {
-    "@atproto/api": "^0.18.21",
-    "axios": "^1.13.5",
+    "@atproto/api": "^0.13.24",
+    "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "knex": "^3.1.0",
-    "lucide-react": "^0.563.0",
-    "next": "^16.1.6",
-    "next-themes": "^0.4.6",
-    "pg": "^8.18.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "recharts": "^3.7.0",
+    "lucide-react": "^0.475.0",
+    "next": "^15.1.6",
+    "next-themes": "^0.4.4",
+    "pg": "^8.13.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.1",
     "sqlite3": "^5.1.7",
-    "tailwind-merge": "^3.4.0",
-    "twitter-api-v2": "^1.29.0",
-    "uuid": "^13.0.0",
-    "zod": "^4.3.6"
+    "tailwind-merge": "^3.0.1",
+    "tsx": "^4.19.2",
+    "twitter-api-v2": "^1.19.1",
+    "typescript": "^5.7.3",
+    "uuid": "^11.0.5",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
-    "@types/node": "^25.2.3",
-    "@types/react": "^19.2.13",
-    "@types/react-dom": "^19.2.3",
+    "@tailwindcss/postcss": "^4.0.6",
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
     "@types/uuid": "^10.0.0",
-    "autoprefixer": "^10.4.24",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^4.0.6"
   }
 }
