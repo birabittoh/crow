@@ -73,6 +73,13 @@ export class FacebookService implements PlatformService {
   validatePost(content: PublishContent): PlatformValidationError[] {
     const errors: PlatformValidationError[] = [];
 
+    if (content.text.trim().length === 0 && content.media.length === 0 && !content.options.link) {
+      errors.push({
+        field: 'content',
+        message: 'Facebook requires either text, media, or a link',
+      });
+    }
+
     if (content.text.length > FACEBOOK_MAX_POST_LENGTH) {
       errors.push({
         field: 'text',

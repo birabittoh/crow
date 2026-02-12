@@ -79,6 +79,14 @@ export class TelegramService implements PlatformService {
 
   validatePost(content: PublishContent): PlatformValidationError[] {
     const errors: PlatformValidationError[] = [];
+
+    if (content.text.trim().length === 0 && content.media.length === 0) {
+      errors.push({
+        field: 'content',
+        message: 'Telegram requires either text or media',
+      });
+    }
+
     const hasMedia = content.media.length > 0;
     const limit = hasMedia ? TELEGRAM_MAX_CAPTION_LENGTH : TELEGRAM_MAX_MESSAGE_LENGTH;
 

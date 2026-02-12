@@ -78,6 +78,13 @@ export class TwitterService implements PlatformService {
   validatePost(content: PublishContent): PlatformValidationError[] {
     const errors: PlatformValidationError[] = [];
 
+    if (content.text.trim().length === 0 && content.media.length === 0) {
+      errors.push({
+        field: 'content',
+        message: 'Twitter requires either text or media',
+      });
+    }
+
     if (content.text.length > TWITTER_MAX_CHARS) {
       errors.push({
         field: 'text',

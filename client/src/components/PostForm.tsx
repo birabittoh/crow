@@ -217,21 +217,35 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     [content, selectedPlatforms, overrides, platformLimits, hasMedia],
   );
 
-  const PLATFORMS_REQUIRING_MEDIA = ['instagram'];
-  const mediaRequiredPlatforms = selectedPlatforms.filter(
-    (p) => PLATFORMS_REQUIRING_MEDIA.includes(p) && !hasMedia && !(platformMediaEnabled[p] && (platformMediaOverrides[p] || []).length > 0)
-  );
+  const platformRequirementsErrors = useMemo(() => {
+    const errors: PlatformValidationError[] = [];
+    selectedPlatforms.forEach((p) => {
+      const effectiveText = overrides[p] || content;
+      const effectiveMedia = platformMediaEnabled[p]
+        ? (platformMediaOverrides[p] || [])
+        : selectedMedia;
+      const hasEffectiveMedia = effectiveMedia.length > 0;
+      const hasLink = !!options[p]?.link;
 
-  const hasContentErrors = contentErrors.length > 0 || mediaRequiredPlatforms.length > 0;
+      if (p === 'instagram') {
+        if (!hasEffectiveMedia) {
+          errors.push({ platform: p, message: 'Requires at least one image or video' });
+        }
+      } else {
+        if (!effectiveText.trim() && !hasEffectiveMedia && !hasLink) {
+          errors.push({ platform: p, message: 'Requires either text or media' });
+        }
+      }
+    });
+    return errors;
+  }, [selectedPlatforms, content, overrides, platformMediaEnabled, platformMediaOverrides, selectedMedia, options]);
+
+  const hasContentErrors = contentErrors.length > 0 || platformRequirementsErrors.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!content.trim()) {
-      setError('Content is required');
-      return;
-    }
     if (selectedPlatforms.length === 0) {
       setError('Select at least one platform');
       return;
@@ -323,11 +337,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               ))}
             </div>
           )}
-          {mediaRequiredPlatforms.length > 0 && (
+          {platformRequirementsErrors.length > 0 && (
             <div className="content-limit-errors">
-              {mediaRequiredPlatforms.map((p) => (
-                <span key={p} className="content-limit-error">
-                  {p}: requires at least one image or video
+              {platformRequirementsErrors.map((err) => (
+                <span key={err.platform} className="content-limit-error">
+                  {err.platform}: {err.message}
                 </span>
               ))}
             </div>
