@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { usePosts, useDeletePost } from '../hooks';
+import ConfirmModal from '../components/ConfirmModal';
 import type { Post } from '../api';
 
 interface PostsListProps {
@@ -15,6 +16,7 @@ function statusLabel(status: string): string {
 export default function PostsPage({ onSelectPost, onClose }: PostsListProps) {
   const { data: posts = [], isLoading, error } = usePosts();
   const deletePost = useDeletePost();
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
   const sortedPosts = [...posts].sort((a, b) => {
     if (a.status === 'scheduled' && b.status !== 'scheduled') return -1;
@@ -30,10 +32,10 @@ export default function PostsPage({ onSelectPost, onClose }: PostsListProps) {
     }
   });
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (confirm('Are you sure you want to delete this post?')) {
-      await deletePost.mutateAsync(id);
+  const handleDelete = async () => {
+    if (postToDelete) {
+      await deletePost.mutateAsync(postToDelete);
+      setPostToDelete(null);
     }
   };
 
@@ -81,7 +83,10 @@ export default function PostsPage({ onSelectPost, onClose }: PostsListProps) {
                 {post.status === 'scheduled' && (
                   <button
                     className="btn btn-ghost delete-btn"
-                    onClick={(e) => handleDelete(e, post.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPostToDelete(post.id);
+                    }}
                     title="Delete post"
                   >
                     &#128465;
@@ -92,6 +97,17 @@ export default function PostsPage({ onSelectPost, onClose }: PostsListProps) {
           </div>
         )}
       </div>
+
+      {postToDelete && (
+        <ConfirmModal
+          title="Delete Post"
+          message="Are you sure you want to delete this post?"
+          confirmLabel="Delete"
+          isDanger
+          onConfirm={handleDelete}
+          onCancel={() => setPostToDelete(null)}
+        />
+      )}
     </div>
   );
 }

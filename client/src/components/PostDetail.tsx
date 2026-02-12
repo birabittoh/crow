@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useDeletePost } from '../hooks';
 import { getMediaUrl } from '../api';
+import ConfirmModal from './ConfirmModal';
 import type { Post } from '../api';
 
 interface PostDetailProps {
@@ -15,9 +16,9 @@ function statusLabel(status: string): string {
 
 export default function PostDetail({ post, onClose }: PostDetailProps) {
   const deletePost = useDeletePost();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm('Delete this post?')) return;
     await deletePost.mutateAsync(post.id);
     onClose();
   };
@@ -112,7 +113,7 @@ export default function PostDetail({ post, onClose }: PostDetailProps) {
         {post.status === 'scheduled' && (
           <button
             className="btn btn-danger"
-            onClick={handleDelete}
+            onClick={() => setShowConfirm(true)}
             disabled={deletePost.isPending}
           >
             {deletePost.isPending ? 'Deleting...' : 'Delete Post'}
@@ -120,6 +121,17 @@ export default function PostDetail({ post, onClose }: PostDetailProps) {
         )}
         <button className="btn btn-ghost" onClick={onClose}>Close</button>
       </div>
+
+      {showConfirm && (
+        <ConfirmModal
+          title="Delete Post"
+          message="Are you sure you want to delete this post?"
+          confirmLabel="Delete"
+          isDanger
+          onConfirm={handleDelete}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
     </div>
   );
 }
