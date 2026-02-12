@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials } from '../hooks';
 import type { PlatformInfo, CredentialField } from '../api';
 import { MetaLogin } from '../components/MetaLogin';
+import { TwitterLogin } from '../components/TwitterLogin';
 
 const PLATFORM_INSTRUCTIONS: Record<string, string> = {
   telegram: "Talk to @BotFather on Telegram to create a bot and get the Bot Token. Add the bot to your channel as an administrator to get the Channel ID (e.g., @mychannel).",
@@ -84,6 +85,8 @@ function PlatformCard({
   const [isLoadingPages, setIsLoadingPages] = useState(false);
 
   const isMeta = info.platform === 'facebook' || info.platform === 'instagram';
+  const isTwitter = info.platform === 'twitter';
+  const hasOAuth = isMeta || isTwitter;
 
   useEffect(() => {
     if (!isEditing) {
@@ -130,6 +133,7 @@ function PlatformCard({
   };
 
   const handleLoginSuccess = async (token: string) => {
+    if (isTwitter) return; // Should not happen with current logic
     setUserToken(token);
     setIsLoadingPages(true);
     setStep('SELECT_PAGE');
@@ -143,6 +147,15 @@ function PlatformCard({
     } finally {
       setIsLoadingPages(false);
     }
+  };
+
+  const handleTwitterLoginSuccess = (token: string, secret: string) => {
+    handleSave({
+      apiKey: appId,
+      apiSecret: appSecret,
+      accessToken: token,
+      accessSecret: secret,
+    });
   };
 
   const selectPage = (page: FacebookPage) => {
@@ -205,10 +218,10 @@ function PlatformCard({
 
       {isEditing && (
         <div className="platform-card-form">
-          {isMeta && step === 'CHOOSE_METHOD' && (
+          {hasOAuth && step === 'CHOOSE_METHOD' && (
             <div className="method-chooser">
               <button className="btn btn-primary" onClick={() => setStep('APP_CREDENTIALS')}>
-                Login for Business
+                {isTwitter ? 'Log in with Twitter' : 'Login for Business'}
               </button>
               <button className="btn btn-ghost" onClick={() => setStep('MANUAL_FORM')}>
                 Manual Configuration
@@ -216,7 +229,7 @@ function PlatformCard({
             </div>
           )}
 
-          {(!isMeta || step === 'MANUAL_FORM') && info.credentialFields.map((field) => (
+          {(!hasOAuth || step === 'MANUAL_FORM') && info.credentialFields.map((field) => (
             <CredentialFieldInput
               key={field.key}
               field={field}
@@ -225,26 +238,30 @@ function PlatformCard({
             />
           ))}
 
-          {isMeta && step === 'APP_CREDENTIALS' && (
+          {hasOAuth && step === 'APP_CREDENTIALS' && (
             <div className="form-group">
-              <label>Meta App ID</label>
+              <label>{isTwitter ? 'Twitter API Key' : 'Meta App ID'}</label>
               <input
                 className="form-input"
                 value={appId}
                 onChange={(e) => setAppId(e.target.value)}
-                placeholder="Enter your Meta App ID"
+                placeholder={isTwitter ? 'Enter your Twitter API Key' : 'Enter your Meta App ID'}
               />
 
-              <label style={{ marginTop: '12px' }}>Meta App Secret</label>
+              <label style={{ marginTop: '12px' }}>{isTwitter ? 'Twitter API Secret' : 'Meta App Secret'}</label>
               <input
                 type="password"
                 className="form-input"
                 value={appSecret}
                 onChange={(e) => setAppSecret(e.target.value)}
-                placeholder="Enter your Meta App Secret"
+                placeholder={isTwitter ? 'Enter your Twitter API Secret' : 'Enter your Meta App Secret'}
               />
 
-              <p className="field-help">You can find these in the Meta for Developers portal.</p>
+              <p className="field-help">
+                {isTwitter
+                  ? 'You can find these in the Twitter Developer Portal under App Settings.'
+                  : 'You can find these in the Meta for Developers portal.'}
+              </p>
               <div className="step-actions">
                 <button
                   className="btn btn-primary"
@@ -263,6 +280,17 @@ function PlatformCard({
                 appId={appId}
                 platform={info.platform as 'facebook' | 'instagram'}
                 onSuccess={handleLoginSuccess}
+                onError={setError}
+              />
+            </div>
+          )}
+
+          {isTwitter && step === 'OAUTH' && (
+            <div className="oauth-step">
+              <TwitterLogin
+                apiKey={appId}
+                apiSecret={appSecret}
+                onSuccess={handleTwitterLoginSuccess}
                 onError={setError}
               />
             </div>
@@ -289,7 +317,7 @@ function PlatformCard({
 
           <div className="platform-card-form-actions">
             <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-            {(!isMeta || step === 'MANUAL_FORM') && (
+            {(!hasOAuth || step === 'MANUAL_FORM') && (
               <button
                 className="btn btn-primary"
                 onClick={() => handleSave()}

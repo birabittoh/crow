@@ -2,9 +2,56 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db';
 import { CreatePostSchema, UpdatePostSchema } from '../schemas/post';
-import { getAvailablePlatforms } from '../platforms/registry';
+import { getAvailablePlatforms, getPlatformService } from '../platforms/registry';
+import { MediaAsset } from '../schemas/media';
+import { PublishContent } from '../platforms/platform-service';
 
 export const postsRouter = Router();
+
+async function validatePostTargets(
+  baseContent: string,
+  mediaIds: string[],
+  platformTargets: any[]
+): Promise<string | null> {
+  // Fetch all relevant media assets
+  const allMediaIds = new Set(mediaIds);
+  for (const target of platformTargets) {
+    if (target.override_media_json) {
+      target.override_media_json.forEach((m: any) => allMediaIds.add(m.media_asset_id));
+    }
+  }
+
+  const mediaAssets = await db('media_assets').whereIn('id', Array.from(allMediaIds));
+  const mediaMap = new Map(mediaAssets.map((m: any) => [m.id, m]));
+
+  const baseMedia = mediaIds.map((id) => mediaMap.get(id)).filter(Boolean) as MediaAsset[];
+
+  for (const target of platformTargets) {
+    const service = await getPlatformService(target.platform);
+    if (!service) continue;
+
+    const text = target.override_content !== undefined && target.override_content !== null
+      ? target.override_content
+      : baseContent;
+
+    let media = baseMedia;
+    if (target.override_media_json && Array.isArray(target.override_media_json)) {
+      media = target.override_media_json
+        .map((m: any) => mediaMap.get(m.media_asset_id))
+        .filter(Boolean) as MediaAsset[];
+    }
+
+    const options = target.override_options_json || {};
+
+    const content: PublishContent = { text, media, options };
+    const errors = service.validatePost(content);
+    if (errors.length > 0) {
+      return `${target.platform}: ${errors.map((e) => e.message).join(', ')}`;
+    }
+  }
+
+  return null;
+}
 
 async function getPostMedia(postId: string | string[]) {
   return db('media_assets')
@@ -79,6 +126,17 @@ postsRouter.post('/', async (req: Request, res: Response) => {
       }
     }
 
+    // Platform-specific validation
+    const validationError = await validatePostTargets(
+      data.base_content,
+      data.media_ids || [],
+      data.platform_targets
+    );
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+
     const postId = uuidv4();
 
     await db.transaction(async (trx) => {
@@ -138,6 +196,39 @@ postsRouter.put('/:id', async (req: Request, res: Response) => {
 
     if (post.status !== 'scheduled') {
       res.status(400).json({ error: 'Cannot update a post that is not in scheduled status' });
+      return;
+    }
+
+    // Platform-specific validation
+    // For update, we might need to merge with existing data if not all fields are provided
+    const baseContent = data.base_content !== undefined ? data.base_content : post.base_content;
+
+    let mediaIds = data.media_ids;
+    if (mediaIds === undefined) {
+      const existingMedia = await db('post_media')
+        .where('post_id', post.id)
+        .orderBy('sort_order', 'asc');
+      mediaIds = existingMedia.map((m: any) => m.media_asset_id);
+    }
+
+    let platformTargets = data.platform_targets;
+    if (platformTargets === undefined) {
+      const existingTargets = await db('post_platform_targets').where('post_id', post.id);
+      platformTargets = existingTargets.map((t: any) => ({
+        platform: t.platform,
+        override_content: t.override_content,
+        override_media_json: t.override_media_json ? JSON.parse(t.override_media_json) : null,
+        override_options_json: t.override_options_json ? JSON.parse(t.override_options_json) : null,
+      }));
+    }
+
+    const validationError = await validatePostTargets(
+      baseContent,
+      mediaIds,
+      platformTargets
+    );
+    if (validationError) {
+      res.status(400).json({ error: validationError });
       return;
     }
 

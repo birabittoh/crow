@@ -67,6 +67,7 @@ export class InstagramService implements PlatformService {
   getCharacterLimits(): CharacterLimits {
     return {
       maxChars: INSTAGRAM_MAX_CAPTION_LENGTH,
+      requiresMedia: true,
     };
   }
 

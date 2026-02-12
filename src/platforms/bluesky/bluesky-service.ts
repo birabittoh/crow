@@ -72,6 +72,13 @@ export class BlueskyService implements PlatformService {
   validatePost(content: PublishContent): PlatformValidationError[] {
     const errors: PlatformValidationError[] = [];
 
+    if (content.text.trim().length === 0 && content.media.length === 0) {
+      errors.push({
+        field: 'content',
+        message: 'Bluesky requires either text or media',
+      });
+    }
+
     if (content.text.length > BLUESKY_MAX_CHARS) {
       errors.push({
         field: 'text',

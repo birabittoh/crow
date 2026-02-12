@@ -11,7 +11,7 @@ export const PostStatusSchema = z.enum([
 export type PostStatus = z.infer<typeof PostStatusSchema>;
 
 export const CreatePostSchema = z.object({
-  base_content: z.string().min(1, 'Content is required'),
+  base_content: z.string().default(''),
   scheduled_at_utc: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: 'Invalid date format',
   }),
@@ -22,7 +22,7 @@ export const CreatePostSchema = z.object({
 export type CreatePost = z.infer<typeof CreatePostSchema>;
 
 export const UpdatePostSchema = z.object({
-  base_content: z.string().min(1).optional(),
+  base_content: z.string().optional(),
   scheduled_at_utc: z
     .string()
     .refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date format' })
