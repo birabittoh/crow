@@ -53,10 +53,10 @@ async function publishToTarget(
   baseMedia: MediaAsset[]
 ): Promise<{ success: boolean; remotePostId?: string; error?: string; errorCode?: string }> {
   const platform: Platform = target.platform;
-  const service = getPlatformService(platform);
+  const service = await getPlatformService(platform);
 
   if (!service) {
-    return { success: false, error: `Platform ${platform} is not available`, errorCode: 'PLATFORM_UNAVAILABLE' };
+    return { success: false, error: `Platform ${platform} is not configured`, errorCode: 'PLATFORM_UNAVAILABLE' };
   }
 
   const content = await resolveContent(post.base_content, baseMedia, target);

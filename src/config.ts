@@ -17,57 +17,6 @@ export const config = {
 
   usePostgres: !!process.env.POSTGRES_HOST,
 
-  // Twitter
-  twitter: process.env.TWITTER_API_KEY
-    ? {
-        apiKey: process.env.TWITTER_API_KEY!,
-        apiSecret: process.env.TWITTER_API_SECRET!,
-        accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-        accessSecret: process.env.TWITTER_ACCESS_SECRET!,
-      }
-    : null,
-
-  // Telegram
-  telegram: process.env.TELEGRAM_BOT_TOKEN
-    ? {
-        botToken: process.env.TELEGRAM_BOT_TOKEN!,
-        channelId: process.env.TELEGRAM_CHANNEL_ID!,
-      }
-    : null,
-
-  // Instagram
-  instagram: process.env.INSTAGRAM_ACCESS_TOKEN
-    ? {
-        accessToken: process.env.INSTAGRAM_ACCESS_TOKEN!,
-        accountId: process.env.INSTAGRAM_ACCOUNT_ID!,
-      }
-    : null,
-
-  // Facebook
-  facebook: process.env.FACEBOOK_PAGE_ACCESS_TOKEN
-    ? {
-        pageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN!,
-        pageId: process.env.FACEBOOK_PAGE_ID!,
-      }
-    : null,
-
-  // Mastodon
-  mastodon: process.env.MASTODON_ACCESS_TOKEN
-    ? {
-        instanceUrl: process.env.MASTODON_INSTANCE_URL!,
-        accessToken: process.env.MASTODON_ACCESS_TOKEN!,
-      }
-    : null,
-
-  // Bluesky
-  bluesky: process.env.BLUESKY_IDENTIFIER
-    ? {
-        service: process.env.BLUESKY_SERVICE || 'https://bsky.social',
-        identifier: process.env.BLUESKY_IDENTIFIER!,
-        password: process.env.BLUESKY_PASSWORD!,
-      }
-    : null,
-
   // Media
   mediaStoragePath: process.env.MEDIA_STORAGE_PATH || './uploads',
 

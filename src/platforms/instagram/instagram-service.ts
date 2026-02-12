@@ -6,6 +6,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -35,6 +36,13 @@ export class InstagramService implements PlatformService {
 
   constructor(credentials: InstagramCredentials | null) {
     this.credentials = credentials;
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'accessToken', label: 'Access Token', type: 'password', placeholder: 'Graph API access token' },
+      { key: 'accountId', label: 'Account ID', type: 'text', placeholder: 'Instagram Business Account ID' },
+    ];
   }
 
   isAvailable(): boolean {

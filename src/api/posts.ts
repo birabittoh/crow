@@ -67,13 +67,13 @@ postsRouter.get('/:id', async (req: Request, res: Response) => {
 postsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const data = CreatePostSchema.parse(req.body);
-    const availablePlatforms = getAvailablePlatforms();
+    const availablePlatforms = await getAvailablePlatforms();
 
-    // Validate all target platforms are available
+    // Validate all target platforms are configured
     for (const target of data.platform_targets) {
       if (!availablePlatforms.includes(target.platform)) {
         res.status(400).json({
-          error: `Platform '${target.platform}' is not available. Available: ${availablePlatforms.join(', ')}`,
+          error: `Platform '${target.platform}' is not configured. Configured: ${availablePlatforms.join(', ') || 'none'}`,
         });
         return;
       }

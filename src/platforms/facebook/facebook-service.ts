@@ -6,6 +6,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -35,6 +36,13 @@ export class FacebookService implements PlatformService {
 
   constructor(credentials: FacebookCredentials | null) {
     this.credentials = credentials;
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'pageAccessToken', label: 'Page Access Token', type: 'password', placeholder: 'Facebook Page access token' },
+      { key: 'pageId', label: 'Page ID', type: 'text', placeholder: 'Facebook Page ID' },
+    ];
   }
 
   isAvailable(): boolean {

@@ -7,6 +7,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -38,6 +39,15 @@ export class TwitterService implements PlatformService {
         accessSecret: credentials.accessSecret,
       });
     }
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'apiKey', label: 'API Key', type: 'password', placeholder: 'Consumer API key' },
+      { key: 'apiSecret', label: 'API Secret', type: 'password', placeholder: 'Consumer API secret' },
+      { key: 'accessToken', label: 'Access Token', type: 'password', placeholder: 'OAuth access token' },
+      { key: 'accessSecret', label: 'Access Secret', type: 'password', placeholder: 'OAuth access secret' },
+    ];
   }
 
   isAvailable(): boolean {
