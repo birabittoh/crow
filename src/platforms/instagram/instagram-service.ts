@@ -173,6 +173,18 @@ export class InstagramService implements PlatformService {
     return await this.publishContainer(accountId, accessToken, carouselData.id);
   }
 
+  async verifyCredentials(): Promise<void> {
+    if (!this.credentials) throw new Error('Instagram not configured');
+    const { accessToken, accountId } = this.credentials;
+
+    const res = await fetch(`${INSTAGRAM_GRAPH_API_BASE}/${accountId}?fields=id&access_token=${accessToken}`);
+    const data = (await res.json()) as { id?: string } & GraphApiError;
+
+    if (!data.id) {
+      throw new Error(`Instagram validation failed: ${data.error?.message || 'Invalid Account ID or Access Token'}`);
+    }
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;

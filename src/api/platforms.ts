@@ -4,6 +4,7 @@ import {
   getAllPlatforms,
   getAvailablePlatforms,
   getPlatformMetadata,
+  validatePlatformCredentials,
   savePlatformCredentials,
   deletePlatformCredentials,
 } from '../platforms/registry';
@@ -57,6 +58,16 @@ platformsRouter.put('/:platform', async (req: Request, res: Response) => {
     if (missing.length > 0) {
       res.status(400).json({
         error: `Missing required credentials: ${missing.map((f) => f.label).join(', ')}`,
+      });
+      return;
+    }
+
+    // Attempt to validate credentials before saving
+    try {
+      await validatePlatformCredentials(platform, credentials);
+    } catch (error: any) {
+      res.status(400).json({
+        error: `Validation failed: ${error.message}`,
       });
       return;
     }

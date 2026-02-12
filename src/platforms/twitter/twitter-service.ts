@@ -163,6 +163,15 @@ export class TwitterService implements PlatformService {
     };
   }
 
+  async verifyCredentials(): Promise<void> {
+    if (!this.client) throw new Error('Twitter client not initialized');
+    try {
+      await this.client.v2.me();
+    } catch (error: any) {
+      throw new Error(`Twitter validation failed: ${error.message}`);
+    }
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;

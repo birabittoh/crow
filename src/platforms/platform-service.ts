@@ -84,6 +84,9 @@ export interface PlatformService {
   /** Map a platform-specific error to a standardized error */
   mapError(error: unknown): PlatformError;
 
+  /** Verify that the configured credentials are valid and working */
+  verifyCredentials(): Promise<void>;
+
   /** Check if the platform supports a specific feature */
   supportsFeature(feature: string): boolean;
 }

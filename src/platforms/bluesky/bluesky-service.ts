@@ -184,6 +184,10 @@ export class BlueskyService implements PlatformService {
     return { remotePostId: data.uri };
   }
 
+  async verifyCredentials(): Promise<void> {
+    await this.ensureSession();
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;

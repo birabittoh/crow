@@ -208,6 +208,18 @@ export class FacebookService implements PlatformService {
     return { remotePostId: data.id };
   }
 
+  async verifyCredentials(): Promise<void> {
+    if (!this.credentials) throw new Error('Facebook not configured');
+    const { pageAccessToken, pageId } = this.credentials;
+
+    const res = await fetch(`${FACEBOOK_GRAPH_API_BASE}/${pageId}?access_token=${pageAccessToken}`);
+    const data = (await res.json()) as { id?: string } & GraphApiError;
+
+    if (!data.id) {
+      throw new Error(`Facebook validation failed: ${data.error?.message || 'Invalid Page ID or Access Token'}`);
+    }
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;
