@@ -20,6 +20,8 @@ import path from 'path';
 interface FacebookCredentials {
   pageAccessToken: string;
   pageId: string;
+  appId?: string;
+  appSecret?: string;
 }
 
 interface GraphApiError {
@@ -42,6 +44,8 @@ export class FacebookService implements PlatformService {
     return [
       { key: 'pageAccessToken', label: 'Page Access Token', type: 'password', placeholder: 'Facebook Page access token' },
       { key: 'pageId', label: 'Page ID', type: 'text', placeholder: 'Facebook Page ID' },
+      { key: 'appId', label: 'App ID', type: 'text', placeholder: 'Meta App ID', required: false },
+      { key: 'appSecret', label: 'App Secret', type: 'password', placeholder: 'Meta App Secret', required: false },
     ];
   }
 
