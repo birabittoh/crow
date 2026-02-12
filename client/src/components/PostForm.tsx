@@ -3,6 +3,7 @@ import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { useCreatePost, useUpdatePost, useMedia } from '../hooks';
 import { api, getMediaUrl } from '../api';
 import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
+import SortableMediaGrid from './SortableMediaGrid';
 
 interface PostFormProps {
   platforms: string[];
@@ -347,30 +348,12 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
           <label>Media</label>
           <div className="media-upload-area">
             {selectedMedia.length > 0 && (
-              <div className="media-preview-grid">
-                {selectedMedia.map((m, i) => (
-                  <div key={m.id} className="media-preview-item">
-                    {m.type === 'image' ? (
-                      <img src={getMediaUrl(m)} alt="" className="media-preview-img" />
-                    ) : (
-                      <div className="media-preview-video">
-                        <span className="media-preview-video-icon">&#9654;</span>
-                        <span className="media-preview-filename">{m.original_filename || 'video'}</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      className="media-remove-btn"
-                      onClick={() => removeSelectedMedia(i)}
-                    >
-                      &times;
-                    </button>
-                    <span className="media-preview-size">
-                      {(m.size_bytes / 1024).toFixed(0)} KB
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <SortableMediaGrid
+                items={selectedMedia}
+                onReorder={setSelectedMedia}
+                onRemove={removeSelectedMedia}
+                showSize
+              />
             )}
             <div className="media-action-buttons">
               <input
@@ -479,27 +462,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                         {platformMediaEnabled[p] && (
                           <div className="media-upload-area platform-media-override">
                             {(platformMediaOverrides[p] || []).length > 0 && (
-                              <div className="media-preview-grid">
-                                {(platformMediaOverrides[p] || []).map((m, i) => (
-                                  <div key={m.id} className="media-preview-item">
-                                    {m.type === 'image' ? (
-                                      <img src={getMediaUrl(m)} alt="" className="media-preview-img" />
-                                    ) : (
-                                      <div className="media-preview-video">
-                                        <span className="media-preview-video-icon">&#9654;</span>
-                                        <span className="media-preview-filename">{m.original_filename || 'video'}</span>
-                                      </div>
-                                    )}
-                                    <button
-                                      type="button"
-                                      className="media-remove-btn"
-                                      onClick={() => removePlatformMedia(p, i)}
-                                    >
-                                      &times;
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
+                              <SortableMediaGrid
+                                items={platformMediaOverrides[p] || []}
+                                onReorder={(newItems) => setPlatformMediaOverrides((prev) => ({ ...prev, [p]: newItems }))}
+                                onRemove={(index) => removePlatformMedia(p, index)}
+                              />
                             )}
                             <div className="media-action-buttons">
                               <button
