@@ -34,6 +34,23 @@ apiRouter.get('/config', (_req, res) => {
     platformOptions,
     platformLimits,
     schedulerPollIntervalMs: config.schedulerPollIntervalMs,
-    recurrentEventsUrl: config.recurrentEventsUrl || null,
   });
+});
+
+// Recurrent events — proxied from external URL
+apiRouter.get('/recurrent-events', async (_req, res) => {
+  const url = config.recurrentEventsUrl;
+  if (!url) {
+    return res.json([]);
+  }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.status(502).json({ error: `Upstream returned ${response.status}` });
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    res.status(502).json({ error: err.message || 'Failed to fetch recurrent events' });
+  }
 });

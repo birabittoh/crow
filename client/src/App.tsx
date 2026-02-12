@@ -77,7 +77,6 @@ export default function App() {
               setReturnView('calendar');
               setView('create');
             }}
-            recurrentEventsUrl={config?.recurrentEventsUrl}
           />
         )}
         {view === 'create' && (

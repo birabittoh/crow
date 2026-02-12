@@ -17,7 +17,6 @@ export interface AppConfig {
   platformOptions: Record<string, OptionField[]>;
   platformLimits: Record<string, CharacterLimits>;
   schedulerPollIntervalMs: number;
-  recurrentEventsUrl: string | null;
 }
 
 export interface RecurrentEvent {
@@ -116,11 +115,7 @@ export function getMediaUrl(asset: MediaAsset): string {
 
 export const api = {
   getConfig: () => apiFetch<AppConfig>('/api/config'),
-  getRecurrentEvents: (url: string) =>
-    fetch(url).then((r) => {
-      if (!r.ok) throw new Error(`Failed to fetch recurrent events: ${r.status}`);
-      return r.json() as Promise<RecurrentEvent[]>;
-    }),
+  getRecurrentEvents: () => apiFetch<RecurrentEvent[]>('/api/recurrent-events'),
   getPosts: () => apiFetch<Post[]>('/api/posts'),
   getPost: (id: string) => apiFetch<Post>(`/api/posts/${id}`),
   createPost: (data: CreatePostPayload) =>

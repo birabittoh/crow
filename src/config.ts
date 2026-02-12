@@ -75,6 +75,6 @@ export const config = {
   schedulerPollIntervalMs: parseInt(process.env.SCHEDULER_POLL_INTERVAL_MS || '15000', 10),
   schedulerMaxRetries: parseInt(process.env.SCHEDULER_MAX_RETRIES || '3', 10),
 
-  // Recurrent events (external URL exposed to frontend via /api/config)
+  // Recurrent events (fetched server-side and proxied via /api/recurrent-events)
   recurrentEventsUrl: process.env.RECURRENT_EVENTS_URL || '',
 };

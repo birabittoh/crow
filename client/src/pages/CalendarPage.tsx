@@ -27,7 +27,6 @@ type CalendarView = 'month' | 'week' | 'day';
 interface CalendarProps {
   onSelectPost: (post: Post) => void;
   onSelectDate: (date: Date) => void;
-  recurrentEventsUrl: string | null | undefined;
 }
 
 function getStatusColor(status: string): string {
@@ -45,12 +44,12 @@ function isRecurrentOnDate(event: RecurrentEvent, date: Date): boolean {
   return event.day === date.getDate() && event.month === date.getMonth() + 1;
 }
 
-export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEventsUrl }: CalendarProps) {
+export default function CalendarPage({ onSelectPost, onSelectDate }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [viewMode, setViewMode] = useState<CalendarView>('month');
   const { data: posts = [] } = usePosts();
-  const { data: recurrentEvents = [] } = useRecurrentEvents(recurrentEventsUrl);
+  const { data: recurrentEvents = [] } = useRecurrentEvents();
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);

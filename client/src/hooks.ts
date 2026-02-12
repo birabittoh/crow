@@ -9,12 +9,11 @@ export function useConfig() {
   });
 }
 
-export function useRecurrentEvents(url: string | null | undefined) {
+export function useRecurrentEvents() {
   return useQuery({
-    queryKey: ['recurrent-events', url],
-    queryFn: () => api.getRecurrentEvents(url!),
+    queryKey: ['recurrent-events'],
+    queryFn: api.getRecurrentEvents,
     staleTime: Infinity,
-    enabled: !!url,
   });
 }
 
