@@ -4,7 +4,7 @@
   "description": "Social media scheduling and publishing system",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "concurrently -n api,client -c blue,green \"tsx watch src/index.ts\" \"vite --config client/vite.config.ts\"",
+    "dev": "concurrently -n api,client,mock -c blue,green,yellow \"tsx watch src/index.ts\" \"vite --config client/vite.config.ts\" \"tsx watch src/mock-recurrent-events.ts\"",
     "dev:api": "tsx watch src/index.ts",
     "dev:client": "vite --config client/vite.config.ts",
     "build": "tsc && vite build --config client/vite.config.ts",
