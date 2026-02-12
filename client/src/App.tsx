@@ -4,10 +4,11 @@ import Calendar from './components/Calendar';
 import PostForm from './components/PostForm';
 import PostDetail from './components/PostDetail';
 import MediaLibrary from './components/MediaLibrary';
+import PostsList from './components/PostsList';
 import { api } from './api';
 import type { Post } from './api';
 
-type View = 'calendar' | 'create' | 'detail' | 'media';
+type View = 'calendar' | 'create' | 'detail' | 'media' | 'posts';
 
 export default function App() {
   const { data: config, isLoading, error } = useConfig();
@@ -35,6 +36,12 @@ export default function App() {
               <span key={p} className="badge">{p}</span>
             ))}
           </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setView('posts')}
+          >
+            Posts
+          </button>
           <button
             className="btn btn-ghost"
             onClick={() => setView('media')}
@@ -73,7 +80,11 @@ export default function App() {
             platformOptions={config?.platformOptions || {}}
             platformLimits={config?.platformLimits || {}}
             initialDate={selectedDate}
-            onClose={() => setView('calendar')}
+            post={selectedPost || undefined}
+            onClose={() => {
+              setSelectedPost(null);
+              setView('calendar');
+            }}
           />
         )}
         {view === 'detail' && selectedPost && (
@@ -94,6 +105,15 @@ export default function App() {
                 setView('calendar');
               }
             }}
+          />
+        )}
+        {view === 'posts' && (
+          <PostsList
+            onSelectPost={(post) => {
+              setSelectedPost(post);
+              setView('create');
+            }}
+            onClose={() => setView('calendar')}
           />
         )}
       </main>
