@@ -12,7 +12,8 @@ services:
       - media_data:/app/uploads
     #  - sqlite_data:/app/data
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   postgres:
@@ -24,6 +25,11 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-crow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   media_data:
