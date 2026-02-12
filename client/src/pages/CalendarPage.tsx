@@ -47,6 +47,7 @@ function isRecurrentOnDate(event: RecurrentEvent, date: Date): boolean {
 
 export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEventsUrl }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date());
   const [viewMode, setViewMode] = useState<CalendarView>('month');
   const { data: posts = [] } = usePosts();
   const { data: recurrentEvents = [] } = useRecurrentEvents(recurrentEventsUrl);
@@ -64,7 +65,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
   const effectiveView = (viewMode === 'week' && isMobile) ? 'day' : viewMode;
 
   const navigate = (direction: 1 | -1) => {
-    if (effectiveView === 'month') {
+    if (isMobile || effectiveView === 'month') {
       setCurrentDate((d) => (direction === 1 ? addMonths(d, 1) : subMonths(d, 1)));
     } else if (effectiveView === 'week') {
       setCurrentDate((d) => (direction === 1 ? addWeeks(d, 1) : subWeeks(d, 1)));
@@ -73,7 +74,11 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
     }
   };
 
-  const goToday = () => setCurrentDate(new Date());
+  const goToday = () => {
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDay(now);
+  };
 
   // Swipe navigation
   const touchStartX = useRef<number | null>(null);
@@ -90,19 +95,61 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
   };
 
   const title = useMemo(() => {
+    if (isMobile) return format(currentDate, 'MMMM yyyy');
     if (effectiveView === 'month') return format(currentDate, 'MMMM yyyy');
     if (effectiveView === 'week') {
       const start = startOfWeek(currentDate, { weekStartsOn: 1 });
       const end = endOfWeek(currentDate, { weekStartsOn: 1 });
       return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
     }
-    return format(currentDate, isMobile ? 'EEE, MMM d' : 'EEEE, MMMM d, yyyy');
+    return format(currentDate, 'EEEE, MMMM d, yyyy');
   }, [currentDate, effectiveView, isMobile]);
 
-  const mobileViews: CalendarView[] = ['month', 'day'];
   const desktopViews: CalendarView[] = ['month', 'week', 'day'];
-  const availableViews = isMobile ? mobileViews : desktopViews;
 
+  // Mobile: single combined view (month + selected day)
+  if (isMobile) {
+    return (
+      <div className="calendar" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <div className="calendar-toolbar">
+          <div className="calendar-nav">
+            <button className="btn btn-ghost" onClick={() => navigate(-1)}>&lt;</button>
+            <button className="btn btn-ghost" onClick={goToday}>Today</button>
+            <button className="btn btn-ghost" onClick={() => navigate(1)}>&gt;</button>
+            <h2 className="calendar-title">{title}</h2>
+          </div>
+        </div>
+
+        <MonthView
+          currentDate={currentDate}
+          posts={posts}
+          recurrentEvents={recurrentEvents}
+          onSelectPost={onSelectPost}
+          onSelectDate={onSelectDate}
+          onSwitchToDay={(date) => {
+            setSelectedDay(date);
+            if (!isSameMonth(date, currentDate)) {
+              setCurrentDate(date);
+            }
+          }}
+          isMobile={true}
+          selectedDay={selectedDay}
+        />
+
+        <h3 className="mobile-day-title">{format(selectedDay, 'EEE, MMM d')}</h3>
+
+        <DayView
+          currentDate={selectedDay}
+          posts={posts}
+          recurrentEvents={recurrentEvents}
+          onSelectPost={onSelectPost}
+          onSelectDate={onSelectDate}
+        />
+      </div>
+    );
+  }
+
+  // Desktop: three separate views
   return (
     <div className="calendar" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="calendar-toolbar">
@@ -113,7 +160,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
           <h2 className="calendar-title">{title}</h2>
         </div>
         <div className="view-switcher">
-          {availableViews.map((v) => (
+          {desktopViews.map((v) => (
             <button
               key={v}
               className={`btn btn-ghost ${viewMode === v ? 'active' : ''}`}
@@ -136,7 +183,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
             setCurrentDate(date);
             setViewMode('day');
           }}
-          isMobile={isMobile}
+          isMobile={false}
         />
       )}
       {effectiveView === 'week' && (
@@ -177,7 +224,8 @@ function MonthView({
   onSelectDate,
   onSwitchToDay,
   isMobile,
-}: ViewProps & { onSwitchToDay: (date: Date) => void; isMobile: boolean }) {
+  selectedDay,
+}: ViewProps & { onSwitchToDay: (date: Date) => void; isMobile: boolean; selectedDay?: Date }) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -217,7 +265,7 @@ function MonthView({
             return (
               <div
                 key={d.toISOString()}
-                className={`month-cell ${!inMonth ? 'other-month' : ''} ${isToday(d) ? 'today' : ''}`}
+                className={`month-cell ${!inMonth ? 'other-month' : ''} ${isToday(d) ? 'today' : ''} ${selectedDay && isSameDay(d, selectedDay) ? 'selected' : ''}`}
                 onClick={() => isMobile ? onSwitchToDay(d) : onSelectDate(d)}
               >
                 <span

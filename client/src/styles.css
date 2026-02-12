@@ -250,6 +250,18 @@ body {
   background: rgba(99, 102, 241, 0.08);
 }
 
+.month-cell.selected {
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.mobile-day-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 12px 0 4px;
+  color: var(--color-text);
+}
+
 .day-number {
   font-size: 0.8rem;
   font-weight: 500;
