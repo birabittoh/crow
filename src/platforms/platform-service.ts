@@ -43,8 +43,25 @@ export interface CharacterLimits {
   maxCharsWithMedia?: number;
 }
 
+/** Describes a credential field that a platform requires */
+export interface CredentialField {
+  /** Machine-readable key, e.g. "botToken" */
+  key: string;
+  /** Human-readable label, e.g. "Bot Token" */
+  label: string;
+  /** Field type: 'text' for visible input, 'password' for masked input */
+  type: 'text' | 'password';
+  /** Placeholder or helper text */
+  placeholder?: string;
+  /** Whether this field is required (defaults to true) */
+  required?: boolean;
+}
+
 export interface PlatformService {
   readonly platformName: string;
+
+  /** Return the credential fields this platform requires for setup */
+  getCredentialFields(): CredentialField[];
 
   /** Check if the platform has valid credentials and is available */
   isAvailable(): boolean;

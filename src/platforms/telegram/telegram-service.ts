@@ -7,6 +7,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -32,6 +33,13 @@ export class TelegramService implements PlatformService {
       this.bot = new TelegramBot(credentials.botToken);
       this.channelId = credentials.channelId;
     }
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'botToken', label: 'Bot Token', type: 'password', placeholder: '123456:ABC-DEF...' },
+      { key: 'channelId', label: 'Channel ID', type: 'text', placeholder: '@mychannel or -1001234567890' },
+    ];
   }
 
   isAvailable(): boolean {

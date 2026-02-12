@@ -6,6 +6,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -39,6 +40,14 @@ export class BlueskyService implements PlatformService {
 
   constructor(credentials: BlueskyCredentials | null) {
     this.credentials = credentials;
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'service', label: 'Service URL', type: 'text', placeholder: 'https://bsky.social' },
+      { key: 'identifier', label: 'Handle or Email', type: 'text', placeholder: 'user.bsky.social or email' },
+      { key: 'password', label: 'App Password', type: 'password', placeholder: 'App password (not main password)' },
+    ];
   }
 
   isAvailable(): boolean {

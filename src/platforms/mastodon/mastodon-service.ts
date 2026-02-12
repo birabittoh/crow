@@ -6,6 +6,7 @@ import {
   PlatformError,
   OptionField,
   CharacterLimits,
+  CredentialField,
 } from '../platform-service';
 import { MediaAsset } from '../../schemas/media';
 import {
@@ -26,6 +27,13 @@ export class MastodonService implements PlatformService {
 
   constructor(credentials: MastodonCredentials | null) {
     this.credentials = credentials;
+  }
+
+  getCredentialFields(): CredentialField[] {
+    return [
+      { key: 'instanceUrl', label: 'Instance URL', type: 'text', placeholder: 'https://mastodon.social' },
+      { key: 'accessToken', label: 'Access Token', type: 'password', placeholder: 'Mastodon access token' },
+    ];
   }
 
   isAvailable(): boolean {

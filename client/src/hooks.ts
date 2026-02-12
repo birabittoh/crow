@@ -92,3 +92,34 @@ export function useBulkDeleteMedia() {
     },
   });
 }
+
+// Platform credentials
+export function usePlatforms() {
+  return useQuery({
+    queryKey: ['platforms'],
+    queryFn: api.getPlatforms,
+  });
+}
+
+export function useSavePlatformCredentials() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ platform, credentials }: { platform: string; credentials: Record<string, string> }) =>
+      api.savePlatformCredentials(platform, credentials),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platforms'] });
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+}
+
+export function useDeletePlatformCredentials() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (platform: string) => api.deletePlatformCredentials(platform),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platforms'] });
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+}

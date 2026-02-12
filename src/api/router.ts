@@ -1,36 +1,33 @@
 import { Router } from 'express';
 import { postsRouter } from './posts';
 import { mediaRouter } from './media';
-import { getAvailablePlatforms, getPlatformService } from '../platforms/registry';
+import { platformsRouter } from './platforms';
+import { getAvailablePlatforms, getAllPlatforms, getPlatformMetadata } from '../platforms/registry';
 import { config } from '../config';
 
 export const apiRouter = Router();
 
 apiRouter.use('/posts', postsRouter);
 apiRouter.use('/media', mediaRouter);
-
-// Available platforms
-apiRouter.get('/platforms', (_req, res) => {
-  const platforms = getAvailablePlatforms();
-  res.json({ platforms });
-});
+apiRouter.use('/platforms', platformsRouter);
 
 // Frontend config endpoint — exposes only safe, non-secret configuration
-apiRouter.get('/config', (_req, res) => {
-  const platforms = getAvailablePlatforms();
+apiRouter.get('/config', async (_req, res) => {
+  const availablePlatforms = await getAvailablePlatforms();
+  const allPlatforms = getAllPlatforms();
 
-  const platformOptions: Record<string, ReturnType<NonNullable<ReturnType<typeof getPlatformService>>['getOptionFields']>> = {};
-  const platformLimits: Record<string, { maxChars: number; maxCharsWithMedia?: number }> = {};
-  for (const p of platforms) {
-    const service = getPlatformService(p);
-    if (service) {
-      platformOptions[p] = service.getOptionFields();
-      platformLimits[p] = service.getCharacterLimits();
-    }
+  const platformOptions: Record<string, any> = {};
+  const platformLimits: Record<string, any> = {};
+
+  for (const p of allPlatforms) {
+    const meta = getPlatformMetadata(p);
+    platformOptions[p] = meta.optionFields;
+    platformLimits[p] = meta.characterLimits;
   }
 
   res.json({
-    platforms,
+    platforms: availablePlatforms,
+    allPlatforms,
     platformOptions,
     platformLimits,
     schedulerPollIntervalMs: config.schedulerPollIntervalMs,

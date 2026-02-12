@@ -7,6 +7,14 @@ export interface OptionField {
   description?: string;
 }
 
+export interface CredentialField {
+  key: string;
+  label: string;
+  type: 'text' | 'password';
+  placeholder?: string;
+  required?: boolean;
+}
+
 export interface CharacterLimits {
   maxChars: number;
   maxCharsWithMedia?: number;
@@ -14,9 +22,16 @@ export interface CharacterLimits {
 
 export interface AppConfig {
   platforms: string[];
+  allPlatforms: string[];
   platformOptions: Record<string, OptionField[]>;
   platformLimits: Record<string, CharacterLimits>;
   schedulerPollIntervalMs: number;
+}
+
+export interface PlatformInfo {
+  platform: string;
+  configured: boolean;
+  credentialFields: CredentialField[];
 }
 
 export interface RecurrentEvent {
@@ -144,4 +159,14 @@ export const api = {
     apiFetch<void>(`/api/media/${id}`, { method: 'DELETE' }),
   bulkDeleteMedia: (ids: string[]) =>
     apiFetch<void>('/api/media/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
+
+  // Platform credentials
+  getPlatforms: () => apiFetch<PlatformInfo[]>('/api/platforms'),
+  savePlatformCredentials: (platform: string, credentials: Record<string, string>) =>
+    apiFetch<{ success: boolean }>(`/api/platforms/${platform}`, {
+      method: 'PUT',
+      body: JSON.stringify(credentials),
+    }),
+  deletePlatformCredentials: (platform: string) =>
+    apiFetch<{ success: boolean }>(`/api/platforms/${platform}`, { method: 'DELETE' }),
 };

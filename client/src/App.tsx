@@ -5,10 +5,11 @@ import PostDetail from './components/PostDetail';
 import CalendarPage from './pages/CalendarPage';
 import MediaPage from './pages/MediaPage';
 import PostsPage from './pages/PostsPage';
+import PlatformsPage from './pages/PlatformsPage';
 import { api } from './api';
 import type { Post } from './api';
 
-type View = 'calendar' | 'create' | 'detail' | 'media' | 'posts';
+type View = 'calendar' | 'create' | 'detail' | 'media' | 'posts' | 'platforms';
 
 export default function App() {
   const { data: config, isLoading, error } = useConfig();
@@ -25,6 +26,8 @@ export default function App() {
     return <div className="error">Failed to load configuration: {error.message}</div>;
   }
 
+  const hasPlatforms = (config?.platforms.length ?? 0) > 0;
+
   return (
     <div className="app">
       <header className="app-header">
@@ -36,7 +39,16 @@ export default function App() {
             {config?.platforms.map((p) => (
               <span key={p} className="badge">{p}</span>
             ))}
+            {!hasPlatforms && (
+              <span className="badge badge-muted">No platforms</span>
+            )}
           </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setView('platforms')}
+          >
+            Platforms
+          </button>
           <button
             className="btn btn-ghost"
             onClick={() => setView('posts')}
@@ -51,6 +63,8 @@ export default function App() {
           </button>
           <button
             className="btn btn-primary"
+            disabled={!hasPlatforms}
+            title={!hasPlatforms ? 'Configure at least one platform first' : undefined}
             onClick={() => {
               setSelectedPost(null);
               setSelectedDate(null);
@@ -72,6 +86,7 @@ export default function App() {
               setView('detail');
             }}
             onSelectDate={(date) => {
+              if (!hasPlatforms) return;
               setSelectedPost(null);
               setSelectedDate(date);
               setReturnView('calendar');
@@ -120,6 +135,11 @@ export default function App() {
               setReturnView('posts');
               setView('create');
             }}
+            onClose={() => setView('calendar')}
+          />
+        )}
+        {view === 'platforms' && (
+          <PlatformsPage
             onClose={() => setView('calendar')}
           />
         )}

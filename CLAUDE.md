@@ -16,7 +16,7 @@ client/          # React frontend (Vite)
 src/             # Express backend
   platforms/     # Platform service implementations
   scheduler/     # Post scheduling and publishing engine
-  routes/        # API route handlers
+  api/           # API route handlers
 migrations/      # Knex database migrations
 data/            # SQLite database files
 uploads/         # User-uploaded media
@@ -31,24 +31,33 @@ uploads/         # User-uploaded media
 - **Mastodon** - implemented (REST API, supports content warnings)
 - **Bluesky** - implemented (AT Protocol, images only)
 
-Each platform implements the `PlatformService` interface in `src/platforms/platform-service.ts` and is registered in `src/platforms/registry.ts`. A platform is only marked available if its credentials are configured in the environment.
+Each platform implements the `PlatformService` interface in `src/platforms/platform-service.ts` and is registered in `src/platforms/registry.ts`.
+
+## Platform Credentials
+
+Platform credentials are stored in the database (`platform_credentials` table), not in environment variables. Users manage credentials through the **Platforms** page in the UI, where they can:
+
+- See all supported platforms and whether each has valid credentials
+- Add credentials for a platform by filling in platform-specific fields
+- Update or remove credentials for a configured platform
+
+Each platform service defines its required credential fields via `getCredentialFields()`. The registry loads credentials from the DB on demand. If a platform's credentials are removed, scheduled posts targeting it will fail with `PLATFORM_UNAVAILABLE` at publish time. Post creation is disabled in the UI when no platforms are configured.
+
+### API endpoints
+
+- `GET /api/platforms` — list all platforms with configuration status and credential field definitions
+- `PUT /api/platforms/:platform` — save credentials for a platform
+- `DELETE /api/platforms/:platform` — remove credentials for a platform
 
 ## Secrets & Configuration
 
-All secrets live in the backend `.env` file (never in the frontend). See `.env.example` for the full list.
+The `.env` file contains only infrastructure settings (never platform credentials). See `.env.example` for the full list.
 
 Key environment variables:
 
 | Variable | Purpose |
 |---|---|
 | `POSTGRES_HOST` | Set to use PostgreSQL instead of SQLite |
-| `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_SECRET` | Twitter/X credentials |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHANNEL_ID` | Telegram bot credentials |
-| `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` | Instagram Graph API credentials |
-| `FACEBOOK_PAGE_ACCESS_TOKEN`, `FACEBOOK_PAGE_ID` | Facebook Page Graph API credentials |
-| `MASTODON_INSTANCE_URL`, `MASTODON_ACCESS_TOKEN` | Mastodon instance and credentials |
-| `BLUESKY_IDENTIFIER`, `BLUESKY_PASSWORD` | Bluesky handle/email and app password |
-| `BLUESKY_SERVICE` | Bluesky service URL (default `https://bsky.social`) |
 | `PORT` | Server port (default 3000) |
 | `MEDIA_STORAGE_PATH` | Upload directory (default `./uploads`) |
 | `SCHEDULER_POLL_INTERVAL_MS` | Scheduler polling interval (default 15000) |
@@ -71,18 +80,20 @@ The Vite dev server runs on port 5173 and proxies `/api` requests to the backend
 
 ## Database
 
-Schema is in `migrations/001_initial_schema.ts`. Key tables:
+Schema is defined across migrations in `migrations/`. Key tables:
 - `posts` - scheduled posts with status tracking
 - `media_assets` - uploaded images/videos (with SHA-256 hash dedup, decoupled from posts)
 - `post_media` - many-to-many join between posts and media_assets (with sort_order)
 - `post_platform_targets` - per-platform content/media overrides and publish status
 - `publish_attempts` - audit trail of publish attempts
+- `platform_credentials` - stored credentials per platform (one row per platform, JSON blob)
 
 Migrations run automatically on container startup. Use `npm run migrate` for local dev.
 
 ## Adding a New Platform
 
 1. Create `src/platforms/<name>/` with a service class implementing `PlatformService`
-2. Register it in `src/platforms/registry.ts`
-3. Add corresponding env vars to `.env.example`
-4. Add the platform enum value to the migration/schema if needed
+2. Implement `getCredentialFields()` to define the credential inputs for the UI
+3. Register the factory in `src/platforms/registry.ts`
+4. Add the platform enum value to the Zod schema in `src/schemas/platform-target.ts`
+5. Add the platform enum value to the migration/schema if needed
