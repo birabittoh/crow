@@ -18,12 +18,19 @@ platformsRouter.get('/', async (_req: Request, res: Response) => {
     const allPlatforms = getAllPlatforms();
     const availablePlatforms = await getAvailablePlatforms();
 
+    // Get all credentials from DB to include them in the response for pre-filling
+    const credentialRows = await db('platform_credentials').select('platform', 'credentials_json');
+    const credentialsMap = new Map(
+      credentialRows.map((row) => [row.platform, JSON.parse(row.credentials_json)])
+    );
+
     const result = allPlatforms.map((platform) => {
       const meta = getPlatformMetadata(platform);
       return {
         platform,
         configured: availablePlatforms.includes(platform),
         credentialFields: meta.credentialFields,
+        currentCredentials: credentialsMap.get(platform) || null,
       };
     });
 

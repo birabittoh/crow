@@ -32,6 +32,7 @@ export interface PlatformInfo {
   platform: string;
   configured: boolean;
   credentialFields: CredentialField[];
+  currentCredentials: Record<string, string> | null;
 }
 
 export interface RecurrentEvent {
