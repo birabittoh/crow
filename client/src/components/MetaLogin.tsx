@@ -52,9 +52,7 @@ export function MetaLogin({ appId, onSuccess, onError, platform }: MetaLoginProp
       return;
     }
 
-    const scope = platform === 'facebook'
-      ? 'pages_manage_posts,pages_read_engagement,pages_show_list'
-      : 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list';
+    const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list'
 
     window.FB.login((response: any) => {
       if (response.authResponse) {
