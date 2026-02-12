@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useConfig } from './hooks';
-import Calendar from './components/Calendar';
 import PostForm from './components/PostForm';
 import PostDetail from './components/PostDetail';
-import MediaLibrary from './components/MediaLibrary';
+import CalendarPage from './pages/CalendarPage';
+import MediaPage from './pages/MediaPage';
+import PostsPage from './pages/PostsPage';
 import { api } from './api';
 import type { Post } from './api';
 
-type View = 'calendar' | 'create' | 'detail' | 'media';
+type View = 'calendar' | 'create' | 'detail' | 'media' | 'posts';
 
 export default function App() {
   const { data: config, isLoading, error } = useConfig();
   const [view, setView] = useState<View>('calendar');
+  const [returnView, setReturnView] = useState<View>('calendar');
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -37,6 +39,12 @@ export default function App() {
           </span>
           <button
             className="btn btn-ghost"
+            onClick={() => setView('posts')}
+          >
+            Posts
+          </button>
+          <button
+            className="btn btn-ghost"
             onClick={() => setView('media')}
           >
             Media
@@ -44,7 +52,9 @@ export default function App() {
           <button
             className="btn btn-primary"
             onClick={() => {
+              setSelectedPost(null);
               setSelectedDate(null);
+              setReturnView(view === 'create' ? returnView : view);
               setView('create');
             }}
           >
@@ -55,13 +65,16 @@ export default function App() {
 
       <main className="app-main">
         {view === 'calendar' && (
-          <Calendar
+          <CalendarPage
             onSelectPost={(post) => {
               setSelectedPost(post);
+              setReturnView('calendar');
               setView('detail');
             }}
             onSelectDate={(date) => {
+              setSelectedPost(null);
               setSelectedDate(date);
+              setReturnView('calendar');
               setView('create');
             }}
             recurrentEventsUrl={config?.recurrentEventsUrl}
@@ -73,27 +86,42 @@ export default function App() {
             platformOptions={config?.platformOptions || {}}
             platformLimits={config?.platformLimits || {}}
             initialDate={selectedDate}
-            onClose={() => setView('calendar')}
+            post={selectedPost || undefined}
+            onClose={() => {
+              setSelectedPost(null);
+              setView(returnView);
+            }}
           />
         )}
         {view === 'detail' && selectedPost && (
           <PostDetail
             post={selectedPost}
-            onClose={() => setView('calendar')}
+            onClose={() => setView(returnView)}
           />
         )}
         {view === 'media' && (
-          <MediaLibrary
+          <MediaPage
             onClose={() => setView('calendar')}
             onNavigateToPost={async (postId) => {
               try {
                 const post = await api.getPost(postId);
                 setSelectedPost(post);
+                setReturnView('media');
                 setView('detail');
               } catch {
                 setView('calendar');
               }
             }}
+          />
+        )}
+        {view === 'posts' && (
+          <PostsPage
+            onSelectPost={(post) => {
+              setSelectedPost(post);
+              setReturnView('posts');
+              setView('create');
+            }}
+            onClose={() => setView('calendar')}
           />
         )}
       </main>

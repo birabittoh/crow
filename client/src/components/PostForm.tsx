@@ -1,14 +1,15 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { format } from 'date-fns';
-import { useCreatePost, useMedia } from '../hooks';
+import { format, parseISO, differenceInMinutes } from 'date-fns';
+import { useCreatePost, useUpdatePost, useMedia } from '../hooks';
 import { api, getMediaUrl } from '../api';
-import type { OptionField, CharacterLimits, MediaAsset } from '../api';
+import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
 
 interface PostFormProps {
   platforms: string[];
   platformOptions: Record<string, OptionField[]>;
   platformLimits: Record<string, CharacterLimits>;
   initialDate: Date | null;
+  post?: Post;
   onClose: () => void;
 }
 
@@ -42,26 +43,87 @@ function validateContentLimits(
   return errors;
 }
 
-export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, onClose }: PostFormProps) {
+export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, post, onClose }: PostFormProps) {
   const createPost = useCreatePost();
+  const updatePost = useUpdatePost();
   const { data: libraryMedia = [] } = useMedia();
 
-  const defaultDateTime = initialDate
-    ? format(initialDate, "yyyy-MM-dd'T'HH:mm")
-    : format(new Date(), "yyyy-MM-dd'T'HH:mm");
+  const defaultDateTime = useMemo(() => {
+    if (post) return format(parseISO(post.scheduled_at_utc), "yyyy-MM-dd'T'HH:mm");
+    if (initialDate) return format(initialDate, "yyyy-MM-dd'T'HH:mm");
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+  }, [post, initialDate]);
 
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState(post?.base_content || '');
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(platforms);
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
-  const [options, setOptions] = useState<Record<string, Record<string, unknown>>>({});
-  const [selectedMedia, setSelectedMedia] = useState<MediaAsset[]>([]);
-  const [platformMediaOverrides, setPlatformMediaOverrides] = useState<Record<string, MediaAsset[]>>({});
-  const [platformMediaEnabled, setPlatformMediaEnabled] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState(platforms[0] || '');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    post ? post.platform_targets.map((t) => t.platform) : platforms
+  );
+  const [overrides, setOverrides] = useState<Record<string, string>>(
+    post
+      ? Object.fromEntries(
+          post.platform_targets
+            .filter((t) => t.override_content)
+            .map((t) => [t.platform, t.override_content!])
+        )
+      : {}
+  );
+  const [options, setOptions] = useState<Record<string, Record<string, unknown>>>(
+    post
+      ? Object.fromEntries(
+          post.platform_targets
+            .filter((t) => t.override_options_json)
+            .map((t) => [t.platform, JSON.parse(t.override_options_json!)])
+        )
+      : {}
+  );
+  const [selectedMedia, setSelectedMedia] = useState<MediaAsset[]>(post?.media || []);
+  const [platformMediaOverrides, setPlatformMediaOverrides] = useState<Record<string, MediaAsset[]>>(
+    post
+      ? Object.fromEntries(
+          post.platform_targets
+            .filter((t) => t.override_media_json)
+            .map((t) => {
+              const mediaIds = (JSON.parse(t.override_media_json!) as { media_asset_id: string }[]).map(
+                (m) => m.media_asset_id
+              );
+              // Note: We don't have the full media objects here, just IDs.
+              // In a real app, we might want to fetch them or include them in the post object.
+              // For now, let's assume libraryMedia might contain them or we handle it gracefully.
+              // Actually, the Post object from API DOES include media, but only for the base post?
+              // Let's check api.ts and src/api/posts.ts again.
+              return [t.platform, []]; // This is a limitation, but we'll try to match from libraryMedia
+            })
+        )
+      : {}
+  );
+
+  // Re-populate platform media overrides from library once libraryMedia is loaded
+  React.useEffect(() => {
+    if (post && libraryMedia.length > 0) {
+      const overrides: Record<string, MediaAsset[]> = {};
+      post.platform_targets.forEach((t) => {
+        if (t.override_media_json) {
+          const mediaIds = (JSON.parse(t.override_media_json) as { media_asset_id: string }[]).map(
+            (m) => m.media_asset_id
+          );
+          overrides[t.platform] = libraryMedia.filter((m) => mediaIds.includes(m.id));
+        }
+      });
+      setPlatformMediaOverrides((prev) => ({ ...prev, ...overrides }));
+    }
+  }, [post, libraryMedia]);
+
+  const [platformMediaEnabled, setPlatformMediaEnabled] = useState<Record<string, boolean>>(
+    post
+      ? Object.fromEntries(post.platform_targets.map((t) => [t.platform, !!t.override_media_json]))
+      : {}
+  );
+  const [activeTab, setActiveTab] = useState(post?.platform_targets[0]?.platform || platforms[0] || '');
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showLibraryPicker, setShowLibraryPicker] = useState(false);
   const [libraryPickerTarget, setLibraryPickerTarget] = useState<string | null>(null); // null = base, platform name = override
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,10 +235,22 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
       return;
     }
 
+    const scheduledDate = new Date(scheduledAt);
+    const now = new Date();
+    if (differenceInMinutes(scheduledDate, now) <= 15) {
+      setShowConfirmDialog(true);
+      return;
+    }
+
+    await performSubmit();
+  };
+
+  const performSubmit = async () => {
     setSubmitting(true);
+    setShowConfirmDialog(false);
 
     try {
-      await createPost.mutateAsync({
+      const payload = {
         base_content: content,
         scheduled_at_utc: new Date(scheduledAt).toISOString(),
         media_ids: selectedMedia.map((m) => m.id),
@@ -202,7 +276,13 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               cleanedOpts && Object.keys(cleanedOpts).length > 0 ? cleanedOpts : null,
           };
         }),
-      });
+      };
+
+      if (post) {
+        await updatePost.mutateAsync({ id: post.id, data: payload });
+      } else {
+        await createPost.mutateAsync(payload);
+      }
 
       onClose();
     } catch (err: any) {
@@ -215,7 +295,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   return (
     <div className="post-form-container">
       <div className="post-form-header">
-        <h2>Schedule Post</h2>
+        <h2>{post ? 'Edit Post' : 'Schedule Post'}</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
       </div>
 
@@ -460,10 +540,29 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
             className="btn btn-primary"
             disabled={submitting || hasContentErrors || uploading}
           >
-            {submitting ? 'Scheduling...' : 'Schedule Post'}
+            {submitting ? (post ? 'Updating...' : 'Scheduling...') : (post ? 'Update Post' : 'Schedule Post')}
           </button>
         </div>
       </form>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="modal-overlay" onClick={() => setShowConfirmDialog(false)}>
+          <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm Schedule</h3>
+              <button className="btn btn-ghost" onClick={() => setShowConfirmDialog(false)}>&times;</button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <p>This post is scheduled to be published in less than 15 minutes. Are you sure you want to proceed?</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowConfirmDialog(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={performSubmit}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Media Library Picker Modal */}
       {showLibraryPicker && (
