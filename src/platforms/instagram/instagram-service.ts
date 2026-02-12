@@ -20,6 +20,8 @@ import path from 'path';
 interface InstagramCredentials {
   accessToken: string;
   accountId: string;
+  appId?: string;
+  appSecret?: string;
 }
 
 interface GraphApiError {
@@ -42,6 +44,8 @@ export class InstagramService implements PlatformService {
     return [
       { key: 'accessToken', label: 'Access Token', type: 'password', placeholder: 'Graph API access token' },
       { key: 'accountId', label: 'Account ID', type: 'text', placeholder: 'Instagram Business Account ID' },
+      { key: 'appId', label: 'App ID', type: 'text', placeholder: 'Meta App ID', required: false },
+      { key: 'appSecret', label: 'App Secret', type: 'password', placeholder: 'Meta App Secret', required: false },
     ];
   }
 

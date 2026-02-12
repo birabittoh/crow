@@ -1727,3 +1727,100 @@ body {
   visibility: visible;
   opacity: 1;
 }
+
+/* Meta Login Styles */
+.method-chooser {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.btn-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-weight: 600;
+  padding: 10px;
+}
+
+.btn-facebook {
+  background-color: #1877F2;
+  color: white;
+}
+
+.btn-facebook:hover:not(:disabled) {
+  background-color: #166fe5;
+}
+
+.btn-instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: white;
+}
+
+.btn-instagram:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.page-selector {
+  margin-top: 16px;
+}
+
+.page-selector h4 {
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  color: var(--color-text-muted);
+}
+
+.page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.page-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.page-item:hover {
+  border-color: var(--color-primary);
+}
+
+.page-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.page-id {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.field-help {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.step-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.oauth-step {
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+}

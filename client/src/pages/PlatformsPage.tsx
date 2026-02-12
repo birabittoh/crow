@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials } from '../hooks';
 import type { PlatformInfo, CredentialField } from '../api';
+import { MetaLogin } from '../components/MetaLogin';
 
 const PLATFORM_INSTRUCTIONS: Record<string, string> = {
   telegram: "Talk to @BotFather on Telegram to create a bot and get the Bot Token. Add the bot to your channel as an administrator to get the Channel ID (e.g., @mychannel).",
@@ -48,6 +49,15 @@ export default function PlatformsPage({ onClose }: PlatformsPageProps) {
   );
 }
 
+type ConfigStep = 'CHOOSE_METHOD' | 'MANUAL_FORM' | 'APP_CREDENTIALS' | 'OAUTH' | 'SELECT_PAGE';
+
+interface FacebookPage {
+  access_token: string;
+  name: string;
+  id: string;
+  instagram_business_account?: { id: string };
+}
+
 function PlatformCard({
   info,
   isEditing,
@@ -66,11 +76,32 @@ function PlatformCard({
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const [step, setStep] = useState<ConfigStep>('CHOOSE_METHOD');
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+  const [userToken, setUserToken] = useState('');
+  const [pages, setPages] = useState<FacebookPage[]>([]);
+  const [isLoadingPages, setIsLoadingPages] = useState(false);
 
-  const handleSave = async () => {
+  const isMeta = info.platform === 'facebook' || info.platform === 'instagram';
+
+  useEffect(() => {
+    if (!isEditing) {
+      setStep('CHOOSE_METHOD');
+      setAppId('');
+      setAppSecret('');
+      setUserToken('');
+      setPages([]);
+    }
+  }, [isEditing]);
+
+  const handleSave = async (overrideValues?: Record<string, string>) => {
     setError(null);
     try {
-      await saveMutation.mutateAsync({ platform: info.platform, credentials: formValues });
+      await saveMutation.mutateAsync({
+        platform: info.platform,
+        credentials: overrideValues || formValues
+      });
       setFormValues({});
       onSaved();
     } catch (err: any) {
@@ -96,6 +127,44 @@ function PlatformCard({
     setFormValues(info.currentCredentials || {});
     setError(null);
     onEdit();
+  };
+
+  const handleLoginSuccess = async (token: string) => {
+    setUserToken(token);
+    setIsLoadingPages(true);
+    setStep('SELECT_PAGE');
+    try {
+      const res = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=name,access_token,instagram_business_account&access_token=${token}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      setPages(data.data || []);
+    } catch (err: any) {
+      setError('Failed to fetch pages: ' + err.message);
+    } finally {
+      setIsLoadingPages(false);
+    }
+  };
+
+  const selectPage = (page: FacebookPage) => {
+    if (info.platform === 'facebook') {
+      handleSave({
+        pageAccessToken: page.access_token,
+        pageId: page.id,
+        appId,
+        appSecret,
+      });
+    } else {
+      if (!page.instagram_business_account) {
+        setError('This Facebook page is not linked to an Instagram Business account.');
+        return;
+      }
+      handleSave({
+        accessToken: page.access_token,
+        accountId: page.instagram_business_account.id,
+        appId,
+        appSecret,
+      });
+    }
   };
 
   return (
@@ -136,7 +205,18 @@ function PlatformCard({
 
       {isEditing && (
         <div className="platform-card-form">
-          {info.credentialFields.map((field) => (
+          {isMeta && step === 'CHOOSE_METHOD' && (
+            <div className="method-chooser">
+              <button className="btn btn-primary" onClick={() => setStep('APP_CREDENTIALS')}>
+                Login for Business
+              </button>
+              <button className="btn btn-ghost" onClick={() => setStep('MANUAL_FORM')}>
+                Manual Configuration
+              </button>
+            </div>
+          )}
+
+          {(!isMeta || step === 'MANUAL_FORM') && info.credentialFields.map((field) => (
             <CredentialFieldInput
               key={field.key}
               field={field}
@@ -144,16 +224,80 @@ function PlatformCard({
               onChange={(val) => handleFieldChange(field.key, val)}
             />
           ))}
+
+          {isMeta && step === 'APP_CREDENTIALS' && (
+            <div className="form-group">
+              <label>Meta App ID</label>
+              <input
+                className="form-input"
+                value={appId}
+                onChange={(e) => setAppId(e.target.value)}
+                placeholder="Enter your Meta App ID"
+              />
+
+              <label style={{ marginTop: '12px' }}>Meta App Secret</label>
+              <input
+                type="password"
+                className="form-input"
+                value={appSecret}
+                onChange={(e) => setAppSecret(e.target.value)}
+                placeholder="Enter your Meta App Secret"
+              />
+
+              <p className="field-help">You can find these in the Meta for Developers portal.</p>
+              <div className="step-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => appId && appSecret && setStep('OAUTH')}
+                  disabled={!appId || !appSecret}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isMeta && step === 'OAUTH' && (
+            <div className="oauth-step">
+              <MetaLogin
+                appId={appId}
+                platform={info.platform as 'facebook' | 'instagram'}
+                onSuccess={handleLoginSuccess}
+                onError={setError}
+              />
+            </div>
+          )}
+
+          {isMeta && step === 'SELECT_PAGE' && (
+            <div className="page-selector">
+              <h4>Select a Page</h4>
+              {isLoadingPages ? <p>Loading pages...</p> : (
+                <div className="page-list">
+                  {pages.map(page => (
+                    <button key={page.id} className="page-item" onClick={() => selectPage(page)}>
+                      <span className="page-name">{page.name}</span>
+                      <span className="page-id">{page.id}</span>
+                    </button>
+                  ))}
+                  {pages.length === 0 && <p>No pages found.</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <div className="form-error">{error}</div>}
+
           <div className="platform-card-form-actions">
             <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSave}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? 'Saving...' : 'Save'}
-            </button>
+            {(!isMeta || step === 'MANUAL_FORM') && (
+              <button
+                className="btn btn-primary"
+                onClick={() => handleSave()}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            )}
           </div>
         </div>
       )}
