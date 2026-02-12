@@ -17,7 +17,7 @@ interface BlockedInfo {
   scheduledPosts: ScheduledPostRef[];
 }
 
-export default function MediaLibrary({ onClose, onNavigateToPost }: { onClose: () => void; onNavigateToPost?: (postId: string) => void }) {
+export default function MediaPage({ onClose, onNavigateToPost }: { onClose: () => void; onNavigateToPost?: (postId: string) => void }) {
   const [filter, setFilter] = useState<FilterMode>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);

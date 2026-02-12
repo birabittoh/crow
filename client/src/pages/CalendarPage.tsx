@@ -45,7 +45,7 @@ function isRecurrentOnDate(event: RecurrentEvent, date: Date): boolean {
   return event.day === date.getDate() && event.month === date.getMonth() + 1;
 }
 
-export default function Calendar({ onSelectPost, onSelectDate, recurrentEventsUrl }: CalendarProps) {
+export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEventsUrl }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<CalendarView>('month');
   const { data: posts = [] } = usePosts();
