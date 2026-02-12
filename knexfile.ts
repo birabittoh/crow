@@ -27,7 +27,7 @@ const config: { [key: string]: Knex.Config } = {
         },
         migrations: {
           directory: './migrations',
-          extension: 'ts',
+          extension: __filename.endsWith('.js') ? 'js' : 'ts',
         },
       }
     : {
@@ -38,7 +38,7 @@ const config: { [key: string]: Knex.Config } = {
         useNullAsDefault: true,
         migrations: {
           directory: './migrations',
-          extension: 'ts',
+          extension: __filename.endsWith('.js') ? 'js' : 'ts',
         },
       },
 };

@@ -25,7 +25,7 @@ function createKnexConfig(): Knex.Config {
       },
       migrations: {
         directory: migrationsDir,
-        extension: 'ts',
+        extension: __filename.endsWith('.js') ? 'js' : 'ts',
       },
     };
   }
@@ -40,7 +40,7 @@ function createKnexConfig(): Knex.Config {
     useNullAsDefault: true,
     migrations: {
       directory: migrationsDir,
-      extension: 'ts',
+      extension: __filename.endsWith('.js') ? 'js' : 'ts',
     },
   };
 }

@@ -11,6 +11,7 @@ COPY client/ client/
 COPY migrations/ migrations/
 
 RUN npx tsc
+RUN npx tsc --outDir dist/migrations --rootDir . migrations/*.ts --skipLibCheck --esModuleInterop --module commonjs --target ES2022
 RUN npx vite build --config client/vite.config.ts
 
 FROM node:20-alpine
@@ -22,8 +23,7 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist/ dist/
 COPY --from=builder /app/client/dist/ client/dist/
-COPY --from=builder /app/migrations/ migrations/
-COPY knexfile.ts ./
+COPY --from=builder /app/dist/migrations/migrations/ migrations/
 
 RUN mkdir -p uploads data
 
