@@ -50,7 +50,7 @@ export async function getPlatformService(platform: Platform): Promise<PlatformSe
 
 /** Get all currently configured (available) platforms from DB */
 export async function getAvailablePlatforms(): Promise<Platform[]> {
-  const rows = await db('platform_credentials').select('platform');
+  const rows = await db('platform_credentials').select('platform', 'credentials_json');
   const available: Platform[] = [];
 
   for (const row of rows) {
