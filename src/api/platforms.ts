@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { TwitterApi } from 'twitter-api-v2';
 import { PlatformSchema } from '../schemas/platform-target';
 import {
   getAllPlatforms,
@@ -11,6 +12,100 @@ import {
 import { db } from '../db';
 
 export const platformsRouter = Router();
+
+const twitterOAuthState = new Map<string, { secret: string; apiKey: string; apiSecret: string; origin: string }>();
+
+platformsRouter.post('/twitter/oauth/authorize', async (req: Request, res: Response) => {
+  const { apiKey, apiSecret, origin } = req.body;
+  if (!apiKey || !apiSecret) {
+    res.status(400).json({ error: 'Missing apiKey or apiSecret' });
+    return;
+  }
+
+  try {
+    const client = new TwitterApi({
+      appKey: apiKey as string,
+      appSecret: apiSecret as string,
+    });
+
+    // Use current request to determine base URL for callback
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const callbackUrl = `${protocol}://${host}/api/platforms/twitter/oauth/callback`;
+
+    const { url, oauth_token, oauth_token_secret } = await client.generateAuthLink(callbackUrl);
+
+    twitterOAuthState.set(oauth_token, {
+      secret: oauth_token_secret,
+      apiKey: apiKey as string,
+      apiSecret: apiSecret as string,
+      origin: origin as string || '*',
+    });
+
+    // Cleanup old state after 15 minutes
+    setTimeout(() => twitterOAuthState.delete(oauth_token), 15 * 60 * 1000);
+
+    res.json({ url });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+platformsRouter.get('/twitter/oauth/callback', async (req: Request, res: Response) => {
+  const { oauth_token, oauth_verifier } = req.query;
+
+  if (!oauth_token || !oauth_verifier) {
+    res.send(`
+      <html><body><script>
+        window.opener.postMessage({ type: 'TWITTER_OAUTH_ERROR', error: 'Missing tokens' }, '*');
+        window.close();
+      </script></body></html>
+    `);
+    return;
+  }
+
+  const state = twitterOAuthState.get(oauth_token as string);
+  if (!state) {
+    res.send(`
+      <html><body><script>
+        window.opener.postMessage({ type: 'TWITTER_OAUTH_ERROR', error: 'Invalid or expired session' }, '*');
+        window.close();
+      </script></body></html>
+    `);
+    return;
+  }
+
+  try {
+    const client = new TwitterApi({
+      appKey: state.apiKey,
+      appSecret: state.apiSecret,
+      accessToken: oauth_token as string,
+      accessSecret: state.secret,
+    });
+
+    const { accessToken, accessSecret } = await client.login(oauth_verifier as string);
+
+    twitterOAuthState.delete(oauth_token as string);
+
+    res.send(`
+      <html><body><script>
+        window.opener.postMessage({
+          type: 'TWITTER_OAUTH_SUCCESS',
+          accessToken: '${accessToken}',
+          accessSecret: '${accessSecret}'
+        }, ${JSON.stringify(state.origin)});
+        window.close();
+      </script></body></html>
+    `);
+  } catch (error: any) {
+    res.send(`
+      <html><body><script>
+        window.opener.postMessage({ type: 'TWITTER_OAUTH_ERROR', error: ${JSON.stringify(error.message)} }, ${JSON.stringify(state.origin)});
+        window.close();
+      </script></body></html>
+    `);
+  }
+});
 
 // List all platforms with their configuration status and credential fields
 platformsRouter.get('/', async (_req: Request, res: Response) => {

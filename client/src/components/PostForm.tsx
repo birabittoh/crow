@@ -226,8 +226,9 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
         : selectedMedia;
       const hasEffectiveMedia = effectiveMedia.length > 0;
       const hasLink = !!options[p]?.link;
+      const limits = platformLimits[p];
 
-      if (p === 'instagram') {
+      if (limits?.requiresMedia) {
         if (!hasEffectiveMedia) {
           errors.push({ platform: p, message: 'Requires at least one image or video' });
         }

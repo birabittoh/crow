@@ -41,6 +41,8 @@ export interface CharacterLimits {
   maxChars: number;
   /** Max characters when media is attached (if different from maxChars) */
   maxCharsWithMedia?: number;
+  /** Whether this platform requires at least one media asset */
+  requiresMedia?: boolean;
 }
 
 /** Describes a credential field that a platform requires */
