@@ -35,14 +35,6 @@ export default function App() {
           Crow
         </h1>
         <div className="header-actions">
-          <span className="platform-badges">
-            {config?.platforms.map((p) => (
-              <span key={p} className="badge">{p}</span>
-            ))}
-            {!hasPlatforms && (
-              <span className="badge badge-muted">No platforms</span>
-            )}
-          </span>
           <button
             className="btn btn-ghost"
             onClick={() => setView('platforms')}

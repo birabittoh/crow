@@ -93,7 +93,7 @@ function PlatformCard({
   };
 
   const startEditing = () => {
-    setFormValues({});
+    setFormValues(info.currentCredentials || {});
     setError(null);
     onEdit();
   };
