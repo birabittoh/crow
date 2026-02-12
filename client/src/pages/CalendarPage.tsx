@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   format,
   startOfMonth,
@@ -51,10 +51,22 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
   const { data: posts = [] } = usePosts();
   const { data: recurrentEvents = [] } = useRecurrentEvents(recurrentEventsUrl);
 
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // On mobile, week view becomes day view
+  const effectiveView = (viewMode === 'week' && isMobile) ? 'day' : viewMode;
+
   const navigate = (direction: 1 | -1) => {
-    if (viewMode === 'month') {
+    if (effectiveView === 'month') {
       setCurrentDate((d) => (direction === 1 ? addMonths(d, 1) : subMonths(d, 1)));
-    } else if (viewMode === 'week') {
+    } else if (effectiveView === 'week') {
       setCurrentDate((d) => (direction === 1 ? addWeeks(d, 1) : subWeeks(d, 1)));
     } else {
       setCurrentDate((d) => addDays(d, direction));
@@ -63,18 +75,36 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
 
   const goToday = () => setCurrentDate(new Date());
 
+  // Swipe navigation
+  const touchStartX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(diff) > 60) {
+      navigate(diff > 0 ? -1 : 1);
+    }
+    touchStartX.current = null;
+  };
+
   const title = useMemo(() => {
-    if (viewMode === 'month') return format(currentDate, 'MMMM yyyy');
-    if (viewMode === 'week') {
+    if (effectiveView === 'month') return format(currentDate, 'MMMM yyyy');
+    if (effectiveView === 'week') {
       const start = startOfWeek(currentDate, { weekStartsOn: 1 });
       const end = endOfWeek(currentDate, { weekStartsOn: 1 });
       return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
     }
-    return format(currentDate, 'EEEE, MMMM d, yyyy');
-  }, [currentDate, viewMode]);
+    return format(currentDate, isMobile ? 'EEE, MMM d' : 'EEEE, MMMM d, yyyy');
+  }, [currentDate, effectiveView, isMobile]);
+
+  const mobileViews: CalendarView[] = ['month', 'day'];
+  const desktopViews: CalendarView[] = ['month', 'week', 'day'];
+  const availableViews = isMobile ? mobileViews : desktopViews;
 
   return (
-    <div className="calendar">
+    <div className="calendar" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="calendar-toolbar">
         <div className="calendar-nav">
           <button className="btn btn-ghost" onClick={() => navigate(-1)}>&lt;</button>
@@ -83,7 +113,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
           <h2 className="calendar-title">{title}</h2>
         </div>
         <div className="view-switcher">
-          {(['month', 'week', 'day'] as const).map((v) => (
+          {availableViews.map((v) => (
             <button
               key={v}
               className={`btn btn-ghost ${viewMode === v ? 'active' : ''}`}
@@ -95,7 +125,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
         </div>
       </div>
 
-      {viewMode === 'month' && (
+      {effectiveView === 'month' && (
         <MonthView
           currentDate={currentDate}
           posts={posts}
@@ -106,9 +136,10 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
             setCurrentDate(date);
             setViewMode('day');
           }}
+          isMobile={isMobile}
         />
       )}
-      {viewMode === 'week' && (
+      {effectiveView === 'week' && (
         <WeekView
           currentDate={currentDate}
           posts={posts}
@@ -117,7 +148,7 @@ export default function CalendarPage({ onSelectPost, onSelectDate, recurrentEven
           onSelectDate={onSelectDate}
         />
       )}
-      {viewMode === 'day' && (
+      {effectiveView === 'day' && (
         <DayView
           currentDate={currentDate}
           posts={posts}
@@ -145,7 +176,8 @@ function MonthView({
   onSelectPost,
   onSelectDate,
   onSwitchToDay,
-}: ViewProps & { onSwitchToDay: (date: Date) => void }) {
+  isMobile,
+}: ViewProps & { onSwitchToDay: (date: Date) => void; isMobile: boolean }) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -162,13 +194,15 @@ function MonthView({
     weeks.push(week);
   }
 
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayNames = isMobile
+    ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <div className="month-view">
       <div className="month-header">
-        {dayNames.map((name) => (
-          <div key={name} className="month-header-cell">{name}</div>
+        {dayNames.map((name, i) => (
+          <div key={i} className="month-header-cell">{name}</div>
         ))}
       </div>
       {weeks.map((week, wi) => (
@@ -184,7 +218,7 @@ function MonthView({
               <div
                 key={d.toISOString()}
                 className={`month-cell ${!inMonth ? 'other-month' : ''} ${isToday(d) ? 'today' : ''}`}
-                onClick={() => onSelectDate(d)}
+                onClick={() => isMobile ? onSwitchToDay(d) : onSelectDate(d)}
               >
                 <span
                   className="day-number"
@@ -195,27 +229,41 @@ function MonthView({
                 >
                   {format(d, 'd')}
                 </span>
-                <div className="cell-events">
-                  {dayEvents.map((ev) => (
-                    <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
-                      {ev.name}
-                    </div>
-                  ))}
-                  {dayPosts.map((p) => (
-                    <div
-                      key={p.id}
-                      className="event-chip post-event"
-                      style={{ borderLeftColor: getStatusColor(p.status) }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectPost(p);
-                      }}
-                    >
-                      {format(parseISO(p.scheduled_at_utc), 'HH:mm')}{' '}
-                      {p.base_content.substring(0, 30)}
-                    </div>
-                  ))}
-                </div>
+                {isMobile ? (
+                  <div className="cell-events-dots">
+                    {dayEvents.map((ev) => (
+                      <span key={ev.id} className="event-dot" style={{ backgroundColor: 'var(--color-recurrent)' }} />
+                    ))}
+                    {dayPosts.slice(0, 3).map((p) => (
+                      <span key={p.id} className="event-dot" style={{ backgroundColor: getStatusColor(p.status) }} />
+                    ))}
+                    {dayPosts.length > 3 && (
+                      <span className="event-dot-more">+{dayPosts.length - 3}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="cell-events">
+                    {dayEvents.map((ev) => (
+                      <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
+                        {ev.name}
+                      </div>
+                    ))}
+                    {dayPosts.map((p) => (
+                      <div
+                        key={p.id}
+                        className="event-chip post-event"
+                        style={{ borderLeftColor: getStatusColor(p.status) }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectPost(p);
+                        }}
+                      >
+                        {format(parseISO(p.scheduled_at_utc), 'HH:mm')}{' '}
+                        {p.base_content.substring(0, 30)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
