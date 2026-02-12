@@ -167,6 +167,20 @@ export class MastodonService implements PlatformService {
     return { remotePostId: data.id };
   }
 
+  async verifyCredentials(): Promise<void> {
+    if (!this.credentials) throw new Error('Mastodon not configured');
+    const { instanceUrl, accessToken } = this.credentials;
+
+    const res = await fetch(`${instanceUrl}/api/v1/accounts/verify_credentials`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      const data = (await res.json()) as { error?: string };
+      throw new Error(`Mastodon validation failed: ${data.error || res.statusText}`);
+    }
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;

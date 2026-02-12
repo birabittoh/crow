@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials } from '../hooks';
 import type { PlatformInfo, CredentialField } from '../api';
 
+const PLATFORM_INSTRUCTIONS: Record<string, string> = {
+  telegram: "Talk to @BotFather on Telegram to create a bot and get the Bot Token. Add the bot to your channel as an administrator to get the Channel ID (e.g., @mychannel).",
+  twitter: "Create an app in the Twitter Developer Portal. Enable OAuth 1.0a with 'Read and Write' permissions to get the API Key, API Secret, Access Token, and Access Secret.",
+  bluesky: "Go to Settings > App Passwords in your Bluesky account to generate an app-specific password. Do not use your main account password.",
+  mastodon: "Go to Preferences > Development > New Application on your Mastodon instance to create an application and get an access token.",
+  facebook: "You need a Page Access Token with 'pages_manage_posts' and 'pages_read_engagement' permissions. Create an App in the Meta for Developers portal and link your Page.",
+  instagram: "Requires an Instagram Business Account linked to a Facebook Page. Get a Graph API access token with 'instagram_basic' and 'instagram_content_publish' permissions.",
+};
+
 interface PlatformsPageProps {
   onClose: () => void;
 }
@@ -92,7 +101,15 @@ function PlatformCard({
   return (
     <div className={`platform-card ${info.configured ? 'configured' : 'unconfigured'}`}>
       <div className="platform-card-header">
-        <span className="platform-card-name">{info.platform}</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span className="platform-card-name">{info.platform}</span>
+          {PLATFORM_INSTRUCTIONS[info.platform] && (
+            <div className="tooltip">
+              <span className="tooltip-icon">?</span>
+              <span className="tooltip-text">{PLATFORM_INSTRUCTIONS[info.platform]}</span>
+            </div>
+          )}
+        </div>
         <span className={`platform-card-status ${info.configured ? 'status-configured' : 'status-unconfigured'}`}>
           {info.configured ? 'Configured' : 'Not configured'}
         </span>

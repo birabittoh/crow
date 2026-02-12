@@ -174,6 +174,26 @@ export class TelegramService implements PlatformService {
     return { remotePostId: String(firstResult.message_id) };
   }
 
+  async verifyCredentials(): Promise<void> {
+    if (!this.bot || !this.channelId) {
+      throw new Error('Telegram bot not initialized or Channel ID missing');
+    }
+
+    try {
+      // Check if bot token is valid
+      await this.bot.getMe();
+    } catch (error: any) {
+      throw new Error(`Invalid Bot Token: ${error.message}`);
+    }
+
+    try {
+      // Check if channel exists and bot has access
+      await this.bot.getChat(this.channelId);
+    } catch (error: any) {
+      throw new Error(`Invalid Channel ID or bot is not a member: ${error.message}`);
+    }
+  }
+
   mapError(error: unknown): PlatformError {
     if (error instanceof Error) {
       const message = error.message;

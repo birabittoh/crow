@@ -71,6 +71,12 @@ export async function getAvailablePlatforms(): Promise<Platform[]> {
   return available;
 }
 
+/** Validate credentials for a platform by attempting to use them */
+export async function validatePlatformCredentials(platform: Platform, credentials: Record<string, string>): Promise<void> {
+  const service = platformFactories[platform](credentials);
+  await service.verifyCredentials();
+}
+
 /** Save credentials for a platform into the DB */
 export async function savePlatformCredentials(platform: Platform, credentials: Record<string, string>): Promise<void> {
   const json = JSON.stringify(credentials);

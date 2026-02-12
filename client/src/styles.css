@@ -1667,3 +1667,63 @@ body {
   color: white;
   opacity: 0.6;
 }
+
+/* Tooltips */
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  cursor: help;
+  margin-left: 8px;
+  color: var(--color-text-muted);
+  vertical-align: middle;
+}
+
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 260px;
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+  text-align: left;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  position: absolute;
+  z-index: 300;
+  bottom: 125%;
+  right: -20px;
+  opacity: 0;
+  transition: opacity 0.2s, visibility 0.2s;
+  font-size: 0.75rem;
+  font-weight: normal;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  border: 1px solid var(--color-border);
+  white-space: normal;
+}
+
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 23px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--color-border) transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
