@@ -193,19 +193,20 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     }));
   };
 
-  const addFromLibrary = (asset: MediaAsset) => {
+  const toggleLibraryMedia = (asset: MediaAsset) => {
     if (libraryPickerTarget === null) {
-      if (!selectedMedia.find((m) => m.id === asset.id)) {
-        setSelectedMedia((prev) => [...prev, asset]);
-      }
+      setSelectedMedia((prev) => {
+        const exists = prev.find((m) => m.id === asset.id);
+        if (exists) return prev.filter((m) => m.id !== asset.id);
+        return [...prev, asset];
+      });
     } else {
-      const current = platformMediaOverrides[libraryPickerTarget] || [];
-      if (!current.find((m) => m.id === asset.id)) {
-        setPlatformMediaOverrides((prev) => ({
-          ...prev,
-          [libraryPickerTarget]: [...current, asset],
-        }));
-      }
+      setPlatformMediaOverrides((prev) => {
+        const current = prev[libraryPickerTarget] || [];
+        const exists = current.find((m) => m.id === asset.id);
+        if (exists) return { ...prev, [libraryPickerTarget]: current.filter((m) => m.id !== asset.id) };
+        return { ...prev, [libraryPickerTarget]: [...current, asset] };
+      });
     }
   };
 
@@ -535,13 +536,13 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
       {showLibraryPicker && (
         <MediaLibraryPicker
           media={libraryMedia}
-          onSelect={addFromLibrary}
+          onToggle={toggleLibraryMedia}
           onUpload={async (file) => {
             const asset = await api.uploadMedia(file);
-            addFromLibrary(asset);
+            toggleLibraryMedia(asset);
           }}
           onClose={() => setShowLibraryPicker(false)}
-          alreadySelected={
+          selectedIds={
             libraryPickerTarget === null
               ? selectedMedia.map((m) => m.id)
               : (platformMediaOverrides[libraryPickerTarget] || []).map((m) => m.id)
@@ -554,16 +555,16 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
 
 function MediaLibraryPicker({
   media,
-  onSelect,
+  onToggle,
   onUpload,
   onClose,
-  alreadySelected,
+  selectedIds,
 }: {
   media: MediaAsset[];
-  onSelect: (asset: MediaAsset) => void;
+  onToggle: (asset: MediaAsset) => void;
   onUpload: (file: File) => Promise<void>;
   onClose: () => void;
-  alreadySelected: string[];
+  selectedIds: string[];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -607,14 +608,14 @@ function MediaLibraryPicker({
             <div className="media-picker-empty">No media in library. Upload some files first.</div>
           )}
           {media.map((asset) => {
-            const isSelected = alreadySelected.includes(asset.id);
+            const orderIndex = selectedIds.indexOf(asset.id);
+            const isSelected = orderIndex !== -1;
             return (
               <button
                 key={asset.id}
                 type="button"
                 className={`media-picker-item ${isSelected ? 'selected' : ''}`}
-                onClick={() => { if (!isSelected) onSelect(asset); }}
-                disabled={isSelected}
+                onClick={() => onToggle(asset)}
               >
                 {asset.type === 'image' ? (
                   <img src={getMediaUrl(asset)} alt="" className="media-picker-thumb" />
@@ -624,7 +625,7 @@ function MediaLibraryPicker({
                   </div>
                 )}
                 <span className="media-picker-name">{asset.original_filename || asset.id.slice(0, 8)}</span>
-                {isSelected && <span className="media-picker-check">&#10003;</span>}
+                {isSelected && <span className="media-picker-order">{orderIndex + 1}</span>}
               </button>
             );
           })}
