@@ -7,6 +7,7 @@ import { InstagramService } from './instagram/instagram-service';
 import { FacebookService } from './facebook/facebook-service';
 import { MastodonService } from './mastodon/mastodon-service';
 import { BlueskyService } from './bluesky/bluesky-service';
+import { DiscordService } from './discord/discord-service';
 
 /** All known platforms and their factory functions. Credentials come from DB. */
 const platformFactories: Record<Platform, (creds: any) => PlatformService> = {
@@ -16,6 +17,7 @@ const platformFactories: Record<Platform, (creds: any) => PlatformService> = {
   facebook: (c) => new FacebookService(c),
   mastodon: (c) => new MastodonService(c),
   bluesky: (c) => new BlueskyService(c),
+  discord: (c) => new DiscordService(c),
 };
 
 /** Create a platform service with null credentials (for metadata like credential fields) */

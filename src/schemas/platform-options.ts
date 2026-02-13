@@ -41,6 +41,13 @@ export const BlueskyOptionsSchema = z.object({
 
 export type BlueskyOptions = z.infer<typeof BlueskyOptionsSchema>;
 
+export const DiscordOptionsSchema = z.object({
+  thread_id: z.string().optional(),
+  suppress_embeds: z.boolean().optional(),
+});
+
+export type DiscordOptions = z.infer<typeof DiscordOptionsSchema>;
+
 export const PlatformOptionsSchema = z.discriminatedUnion('platform', [
   z.object({ platform: z.literal('twitter'), options: TwitterOptionsSchema }),
   z.object({ platform: z.literal('telegram'), options: TelegramOptionsSchema }),
@@ -48,6 +55,7 @@ export const PlatformOptionsSchema = z.discriminatedUnion('platform', [
   z.object({ platform: z.literal('facebook'), options: FacebookOptionsSchema }),
   z.object({ platform: z.literal('mastodon'), options: MastodonOptionsSchema }),
   z.object({ platform: z.literal('bluesky'), options: BlueskyOptionsSchema }),
+  z.object({ platform: z.literal('discord'), options: DiscordOptionsSchema }),
 ]);
 
 export type PlatformOptions = z.infer<typeof PlatformOptionsSchema>;
