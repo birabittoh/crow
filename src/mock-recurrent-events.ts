@@ -9,7 +9,8 @@ const mockEvents = [
     day: 1,
     month: 1,
     name: "New Year's Day",
-    description: "Celebration of the beginning of the new year."
+    description: "Celebration of the beginning of the new year.",
+    year: 1900
   },
   {
     id: 2,
@@ -44,7 +45,8 @@ const mockEvents = [
     day: 25,
     month: 12,
     name: "Christmas Day",
-    description: "Annual festival commemorating the birth of Jesus Christ."
+    description: "Annual festival commemorating the birth of Jesus Christ.",
+    year: 0
   }
 ];
 

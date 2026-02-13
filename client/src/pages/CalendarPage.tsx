@@ -44,6 +44,12 @@ function isRecurrentOnDate(event: RecurrentEvent, date: Date): boolean {
   return event.day === date.getDate() && event.month === date.getMonth() + 1;
 }
 
+function getEventDisplayName(event: RecurrentEvent, date: Date): string {
+  if (event.year === undefined || event.year === null) return event.name;
+  const age = date.getFullYear() - event.year;
+  return `${event.name} (${age})`;
+}
+
 export default function CalendarPage({ onSelectPost, onSelectDate }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date());
@@ -292,7 +298,7 @@ function MonthView({
                   <div className="cell-events">
                     {dayEvents.map((ev) => (
                       <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
-                        {ev.name}
+                        {getEventDisplayName(ev, d)}
                       </div>
                     ))}
                     {dayPosts.map((p) => (
@@ -349,7 +355,7 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
               <div key={d.toISOString()} className="week-allday-cell">
                 {dayEvents.map((ev) => (
                   <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
-                    {ev.name}
+                    {getEventDisplayName(ev, d)}
                   </div>
                 ))}
               </div>
@@ -408,7 +414,7 @@ function DayView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectDa
         <div className="day-events-banner">
           {dayEvents.map((ev) => (
             <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
-              {ev.name}
+              {getEventDisplayName(ev, currentDate)}
             </div>
           ))}
         </div>

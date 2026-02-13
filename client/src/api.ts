@@ -41,6 +41,7 @@ export interface RecurrentEvent {
   month: number;
   name: string;
   description: string;
+  year?: number;
 }
 
 export interface PlatformTarget {
