@@ -45,7 +45,7 @@ export default function PostsPage({ onSelectPost, onClose }: PostsListProps) {
   return (
     <div className="posts-list-container">
       <div className="posts-list-header">
-        <h2>All Posts</h2>
+        <h2>Posts</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
       </div>
 

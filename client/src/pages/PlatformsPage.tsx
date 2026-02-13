@@ -28,7 +28,7 @@ export default function PlatformsPage({ onClose }: PlatformsPageProps) {
   return (
     <div className="platforms-page">
       <div className="page-header">
-        <h2>Platform Configuration</h2>
+        <h2>Platforms</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
       </div>
       <p className="platforms-description">

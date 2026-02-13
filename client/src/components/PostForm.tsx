@@ -44,6 +44,11 @@ function validateContentLimits(
   return errors;
 }
 
+function capitalize(str: string): string {
+  if (typeof str !== 'string' || str.length === 0) return str;
+  return str[0].toUpperCase() + str.slice(1);
+}
+
 export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, post, onClose }: PostFormProps) {
   const createPost = useCreatePost();
   const updatePost = useUpdatePost();
@@ -350,7 +355,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
         </div>
 
         <div className="form-group">
-          <label>Schedule Date & Time (UTC)</label>
+          <label>Schedule date and time</label>
           <input
             type="datetime-local"
             value={scheduledAt}
@@ -382,14 +387,14 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                 id="media-upload"
               />
               <label htmlFor="media-upload" className="btn btn-ghost media-upload-btn">
-                {uploading ? 'Uploading...' : '+ Upload New'}
+                {uploading ? 'Uploading...' : '+ Upload new'}
               </label>
               <button
                 type="button"
                 className="btn btn-ghost media-upload-btn"
                 onClick={() => { setLibraryPickerTarget(null); setShowLibraryPicker(true); }}
               >
-                Choose from Library
+                Choose from library
               </button>
             </div>
           </div>
@@ -430,7 +435,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                       checked={isEnabled}
                       onChange={() => togglePlatform(p)}
                     />
-                    <span>Post on {p}</span>
+                    <span>Post on {capitalize(p)}</span>
                   </label>
 
                   {isEnabled && (() => {
@@ -473,7 +478,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                             checked={!!platformMediaEnabled[p]}
                             onChange={() => setPlatformMediaEnabled((prev) => ({ ...prev, [p]: !prev[p] }))}
                           />
-                          <span>Override media for {p}</span>
+                          <span>Override media for {capitalize(p)}</span>
                         </label>
                         {platformMediaEnabled[p] && (
                           <div className="media-upload-area platform-media-override">
@@ -490,7 +495,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                                 className="btn btn-ghost media-upload-btn"
                                 onClick={() => { setLibraryPickerTarget(p); setShowLibraryPicker(true); }}
                               >
-                                Choose from Library
+                                Choose from library
                               </button>
                             </div>
                           </div>
@@ -601,7 +606,7 @@ function MediaLibraryPicker({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content media-picker-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Media Library</h3>
+          <h3>Media</h3>
           <button className="btn btn-ghost" onClick={onClose}>&times;</button>
         </div>
         <div className="media-picker-actions">
@@ -615,7 +620,7 @@ function MediaLibraryPicker({
             id="picker-upload"
           />
           <label htmlFor="picker-upload" className="btn btn-ghost">
-            {uploading ? 'Uploading...' : '+ Upload New'}
+            {uploading ? 'Uploading...' : '+ Upload new'}
           </label>
         </div>
         <div className="media-picker-grid">

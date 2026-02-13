@@ -18,6 +18,7 @@ export interface CredentialField {
 export interface CharacterLimits {
   maxChars: number;
   maxCharsWithMedia?: number;
+  requiresMedia?: boolean;
 }
 
 export interface AppConfig {

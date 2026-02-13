@@ -83,7 +83,7 @@ export default function MediaPage({ onClose, onNavigateToPost }: { onClose: () =
   return (
     <div className="media-library">
       <div className="media-library-header">
-        <h2>Media Library</h2>
+        <h2>Media</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
       </div>
 
@@ -114,7 +114,7 @@ export default function MediaPage({ onClose, onNavigateToPost }: { onClose: () =
           </label>
           {media.length > 0 && (
             <button className="btn btn-ghost" onClick={selectAll}>
-              {selectedIds.size === media.length ? 'Deselect All' : 'Select All'}
+              {selectedIds.size === media.length ? 'Deselect all' : 'Select all'}
             </button>
           )}
           {selectedIds.size > 0 && (

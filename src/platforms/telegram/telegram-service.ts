@@ -57,13 +57,13 @@ export class TelegramService implements PlatformService {
       },
       {
         key: 'disable_web_page_preview',
-        label: 'Disable Web Page Preview',
+        label: 'Disable webpage preview',
         type: 'boolean',
         description: 'Disables link previews in messages',
       },
       {
         key: 'disable_notification',
-        label: 'Disable Notification',
+        label: 'Disable notification',
         type: 'boolean',
         description: 'Sends the message silently',
       },
