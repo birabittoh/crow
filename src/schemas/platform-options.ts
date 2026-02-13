@@ -48,6 +48,13 @@ export const DiscordOptionsSchema = z.object({
 
 export type DiscordOptions = z.infer<typeof DiscordOptionsSchema>;
 
+export const ThreadsOptionsSchema = z.object({
+  reply_to: z.string().optional(),
+  reply_control: z.enum(['everyone', 'accounts_you_follow', 'mentioned_only']).optional(),
+});
+
+export type ThreadsOptions = z.infer<typeof ThreadsOptionsSchema>;
+
 export const PlatformOptionsSchema = z.discriminatedUnion('platform', [
   z.object({ platform: z.literal('twitter'), options: TwitterOptionsSchema }),
   z.object({ platform: z.literal('telegram'), options: TelegramOptionsSchema }),
@@ -56,6 +63,7 @@ export const PlatformOptionsSchema = z.discriminatedUnion('platform', [
   z.object({ platform: z.literal('mastodon'), options: MastodonOptionsSchema }),
   z.object({ platform: z.literal('bluesky'), options: BlueskyOptionsSchema }),
   z.object({ platform: z.literal('discord'), options: DiscordOptionsSchema }),
+  z.object({ platform: z.literal('threads'), options: ThreadsOptionsSchema }),
 ]);
 
 export type PlatformOptions = z.infer<typeof PlatformOptionsSchema>;
