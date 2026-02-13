@@ -35,19 +35,19 @@ export class DiscordService implements PlatformService {
         key: 'botToken',
         label: 'Bot Token',
         type: 'password',
-        placeholder: 'Your Discord bot token'
+        placeholder: 'Get from discord.com/developers/applications',
       },
       {
         key: 'guildId',
-        label: 'Server ID',
+        label: 'Server ID (Guild ID)',
         type: 'text',
-        placeholder: 'Discord server (guild) ID'
+        placeholder: 'Right-click server → Copy Server ID (enable Developer Mode)',
       },
       {
         key: 'channelId',
         label: 'Channel ID',
         type: 'text',
-        placeholder: 'Discord text channel ID'
+        placeholder: 'Right-click channel → Copy Channel ID',
       },
     ];
   }
@@ -65,7 +65,7 @@ export class DiscordService implements PlatformService {
         key: 'thread_id',
         label: 'Thread ID',
         type: 'string',
-        description: 'Optional: Send to a specific thread within the channel',
+        description: 'Post to a specific thread (right-click thread → Copy Thread ID)',
         required: false,
       },
       {
@@ -134,11 +134,14 @@ export class DiscordService implements PlatformService {
         });
       });
 
-      // Get the channel
-      const channel = await client.channels.fetch(this.credentials.channelId);
+      // Get the target channel (or thread)
+      const threadId = content.options.thread_id as string | undefined;
+      const targetChannelId = threadId || this.credentials.channelId;
+
+      const channel = await client.channels.fetch(targetChannelId);
 
       if (!channel || !channel.isTextBased()) {
-        throw new Error('Channel not found or is not a text channel');
+        throw new Error(threadId ? 'Thread not found or is not a text-based thread' : 'Channel not found or is not a text channel');
       }
 
       const textChannel = channel as TextChannel;
