@@ -23,6 +23,7 @@ function validateContentLimits(
   content: string,
   selectedPlatforms: string[],
   overrides: Record<string, string>,
+  platformContentEnabled: Record<string, boolean>,
   platformLimits: Record<string, CharacterLimits>,
   hasMedia: boolean,
 ): PlatformValidationError[] {
@@ -30,7 +31,9 @@ function validateContentLimits(
   for (const platform of selectedPlatforms) {
     const limits = platformLimits[platform];
     if (!limits) continue;
-    const text = overrides[platform] || content;
+    const text = platformContentEnabled[platform]
+      ? (overrides[platform] || '')
+      : content;
     const maxChars = hasMedia && limits.maxCharsWithMedia != null
       ? limits.maxCharsWithMedia
       : limits.maxChars;
@@ -48,6 +51,21 @@ function capitalize(str: string): string {
   if (typeof str !== 'string' || str.length === 0) return str;
   return str[0].toUpperCase() + str.slice(1);
 }
+
+interface ChooseFromLibraryButtonProps {
+  target: string | null;
+  onClick: (target: string | null) => void;
+}
+
+const ChooseFromLibraryButton = ({ target, onClick }: ChooseFromLibraryButtonProps) => (
+  <button
+    type="button"
+    className="btn btn-ghost media-upload-btn"
+    onClick={() => onClick(target)}
+  >
+    Choose from library
+  </button>
+);
 
 export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, post, onClose }: PostFormProps) {
   const createPost = useCreatePost();
@@ -69,7 +87,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     post
       ? Object.fromEntries(
           post.platform_targets
-            .filter((t) => t.override_content)
+            .filter((t) => t.override_content !== null)
             .map((t) => [t.platform, t.override_content!])
         )
       : {}
@@ -90,15 +108,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
           post.platform_targets
             .filter((t) => t.override_media_json)
             .map((t) => {
-              const mediaIds = (JSON.parse(t.override_media_json!) as { media_asset_id: string }[]).map(
-                (m) => m.media_asset_id
-              );
-              // Note: We don't have the full media objects here, just IDs.
-              // In a real app, we might want to fetch them or include them in the post object.
-              // For now, let's assume libraryMedia might contain them or we handle it gracefully.
-              // Actually, the Post object from API DOES include media, but only for the base post?
-              // Let's check api.ts and src/api/posts.ts again.
-              return [t.platform, []]; // This is a limitation, but we'll try to match from libraryMedia
+              return [t.platform, []]; // Full objects matched from libraryMedia in useEffect below
             })
         )
       : {}
@@ -120,6 +130,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
     }
   }, [post, libraryMedia]);
 
+  const [platformContentEnabled, setPlatformContentEnabled] = useState<Record<string, boolean>>(
+    post
+      ? Object.fromEntries(post.platform_targets.map((t) => [t.platform, t.override_content !== null]))
+      : {}
+  );
   const [platformMediaEnabled, setPlatformMediaEnabled] = useState<Record<string, boolean>>(
     post
       ? Object.fromEntries(post.platform_targets.map((t) => [t.platform, !!t.override_media_json]))
@@ -134,6 +149,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   const [libraryPickerTarget, setLibraryPickerTarget] = useState<string | null>(null); // null = base, platform name = override
   const fileInputRef = useRef<HTMLInputElement>(null);
   const platformFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChooseFromLibrary = (target: string | null) => {
+    setLibraryPickerTarget(target);
+    setShowLibraryPicker(true);
+  };
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms((prev) =>
@@ -218,14 +238,16 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   const hasMedia = selectedMedia.length > 0;
 
   const contentErrors = useMemo(
-    () => validateContentLimits(content, selectedPlatforms, overrides, platformLimits, hasMedia),
-    [content, selectedPlatforms, overrides, platformLimits, hasMedia],
+    () => validateContentLimits(content, selectedPlatforms, overrides, platformContentEnabled, platformLimits, hasMedia),
+    [content, selectedPlatforms, overrides, platformContentEnabled, platformLimits, hasMedia],
   );
 
   const platformRequirementsErrors = useMemo(() => {
     const errors: PlatformValidationError[] = [];
     selectedPlatforms.forEach((p) => {
-      const effectiveText = overrides[p] || content;
+      const effectiveText = platformContentEnabled[p]
+        ? (overrides[p] || '')
+        : content;
       const effectiveMedia = platformMediaEnabled[p]
         ? (platformMediaOverrides[p] || [])
         : selectedMedia;
@@ -286,13 +308,13 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               )
             : null;
 
-          const overrideMedia = platformMediaEnabled[p] && platformMediaOverrides[p]?.length
-            ? platformMediaOverrides[p].map((m) => ({ media_asset_id: m.id }))
+          const overrideMedia = platformMediaEnabled[p]
+            ? (platformMediaOverrides[p] || []).map((m) => ({ media_asset_id: m.id }))
             : null;
 
           return {
             platform: p,
-            override_content: overrides[p] || null,
+            override_content: platformContentEnabled[p] ? (overrides[p] || '') : null,
             override_media_json: overrideMedia,
             override_options_json:
               cleanedOpts && Object.keys(cleanedOpts).length > 0 ? cleanedOpts : null,
@@ -389,13 +411,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
               <label htmlFor="media-upload" className="btn btn-ghost media-upload-btn">
                 {uploading ? 'Uploading...' : '+ Upload new'}
               </label>
-              <button
-                type="button"
-                className="btn btn-ghost media-upload-btn"
-                onClick={() => { setLibraryPickerTarget(null); setShowLibraryPicker(true); }}
-              >
-                Choose from library
-              </button>
+              <ChooseFromLibraryButton target={null} onClick={handleChooseFromLibrary} />
             </div>
           </div>
         </div>
@@ -440,7 +456,9 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
 
                   {isEnabled && (() => {
                     const limits = platformLimits[p];
-                    const effectiveText = overrides[p] || content;
+                    const effectiveText = platformContentEnabled[p]
+                      ? (overrides[p] || '')
+                      : content;
                     const effectiveHasMedia = platformMediaEnabled[p]
                       ? (platformMediaOverrides[p] || []).length > 0
                       : hasMedia;
@@ -452,20 +470,36 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                     return (
                     <div className="platform-tab-fields">
                       <div className="form-group">
-                        <label>Override content (optional)</label>
-                        <textarea
-                          value={overrides[p] || ''}
-                          onChange={(e) =>
-                            setOverrides((prev) => ({ ...prev, [p]: e.target.value }))
-                          }
-                          rows={2}
-                          placeholder={`Custom content for ${p}...`}
-                          className={`form-textarea form-textarea-small ${isOverLimit ? 'form-textarea-error' : ''}`}
-                        />
-                        {maxChars != null && (
+                        <label className="platform-enable-toggle">
+                          <input
+                            type="checkbox"
+                            checked={!!platformContentEnabled[p]}
+                            onChange={() => setPlatformContentEnabled((prev) => ({ ...prev, [p]: !prev[p] }))}
+                          />
+                          <span>Override content for {capitalize(p)}</span>
+                        </label>
+                        {platformContentEnabled[p] && (
+                          <>
+                            <textarea
+                              value={overrides[p] || ''}
+                              onChange={(e) =>
+                                setOverrides((prev) => ({ ...prev, [p]: e.target.value }))
+                              }
+                              rows={2}
+                              placeholder={`Custom content for ${p}...`}
+                              className={`form-textarea form-textarea-small ${isOverLimit ? 'form-textarea-error' : ''}`}
+                            />
+                            {maxChars != null && (
+                              <span className={`char-count ${isOverLimit ? 'char-count-error' : ''}`}>
+                                {effectiveText.length}/{maxChars} characters
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {!platformContentEnabled[p] && maxChars != null && (
                           <span className={`char-count ${isOverLimit ? 'char-count-error' : ''}`}>
                             {effectiveText.length}/{maxChars} characters
-                            {!overrides[p] && isOverLimit && ' (using base content)'}
+                            {isOverLimit && ' (using base content)'}
                           </span>
                         )}
                       </div>
@@ -490,13 +524,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                               />
                             )}
                             <div className="media-action-buttons">
-                              <button
-                                type="button"
-                                className="btn btn-ghost media-upload-btn"
-                                onClick={() => { setLibraryPickerTarget(p); setShowLibraryPicker(true); }}
-                              >
-                                Choose from library
-                              </button>
+                              <ChooseFromLibraryButton target={p} onClick={handleChooseFromLibrary} />
                             </div>
                           </div>
                         )}
