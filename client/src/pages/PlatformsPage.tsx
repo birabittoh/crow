@@ -11,6 +11,8 @@ const PLATFORM_INSTRUCTIONS: Record<string, string> = {
   mastodon: "Go to Preferences > Development > New Application on your Mastodon instance to create an application and get an access token.",
   facebook: "You need a Page Access Token with 'pages_manage_posts' and 'pages_read_engagement' permissions. Create an App in the Meta for Developers portal and link your Page.",
   instagram: "Requires an Instagram Business Account linked to a Facebook Page. Get a Graph API access token with 'instagram_basic' and 'instagram_content_publish' permissions.",
+  discord: "Create a bot in the Discord Developer Portal and get the Bot Token. Add the bot to your server with 'Send Messages' and 'Attach Files' permissions. Get the Channel ID by right-clicking a channel (requires Developer Mode enabled).",
+  threads: "Requires a Threads account. Get a Threads API access token with proper permissions from the Meta for Developers portal. You'll also need your Threads User ID.",
 };
 
 interface PlatformsPageProps {
