@@ -38,8 +38,9 @@ export default function App() {
           <button
             className="btn btn-ghost"
             onClick={() => setView('platforms')}
+            title="Platforms"
           >
-            Platforms
+            ⚙️
           </button>
           <button
             className="btn btn-ghost"
@@ -52,19 +53,6 @@ export default function App() {
             onClick={() => setView('media')}
           >
             Media
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={!hasPlatforms}
-            title={!hasPlatforms ? 'Configure at least one platform first' : undefined}
-            onClick={() => {
-              setSelectedPost(null);
-              setSelectedDate(null);
-              setReturnView(view === 'create' ? returnView : view);
-              setView('create');
-            }}
-          >
-            + New Post
           </button>
         </div>
       </header>
