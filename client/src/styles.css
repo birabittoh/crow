@@ -201,6 +201,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 24px;
 }
 
 .month-header {
@@ -341,6 +342,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 24px;
 }
 
 .week-header {
@@ -454,6 +456,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 32px;
 }
 
 .day-events-banner {
@@ -497,6 +500,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 32px;
 }
 
 .post-form-header {
@@ -513,6 +517,7 @@ body {
 
 .post-form {
   padding: 20px;
+  padding-bottom: 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -722,6 +727,7 @@ body {
 
 .platform-tab-bar {
   display: flex;
+  flex-wrap: wrap;
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
 }
@@ -839,6 +845,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 32px;
 }
 
 .post-detail-header {
@@ -967,9 +974,10 @@ body {
   border-radius: var(--radius);
   max-width: 720px;
   width: 90vw;
-  max-height: 80vh;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .modal-header {
@@ -1164,6 +1172,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
+  margin-bottom: 32px;
 }
 
 .media-library-header {
@@ -1320,6 +1329,7 @@ body {
 
   .app-main {
     padding: 8px;
+    padding-bottom: 48px;
   }
 
   /* Calendar toolbar */
@@ -1553,6 +1563,7 @@ body {
 }
 .post-list-item-platforms {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
 }

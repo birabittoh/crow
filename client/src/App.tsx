@@ -102,6 +102,10 @@ export default function App() {
         {view === 'detail' && selectedPost && (
           <PostDetail
             post={selectedPost}
+            onEdit={(post) => {
+              setSelectedPost(post);
+              setView('create');
+            }}
             onClose={() => setView(returnView)}
           />
         )}
@@ -125,7 +129,7 @@ export default function App() {
             onSelectPost={(post) => {
               setSelectedPost(post);
               setReturnView('posts');
-              setView('create');
+              setView('detail');
             }}
             onClose={() => setView('calendar')}
           />

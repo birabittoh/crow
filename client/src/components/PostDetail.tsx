@@ -7,6 +7,7 @@ import type { Post } from '../api';
 
 interface PostDetailProps {
   post: Post;
+  onEdit: (post: Post) => void;
   onClose: () => void;
 }
 
@@ -14,7 +15,7 @@ function statusLabel(status: string): string {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function PostDetail({ post, onClose }: PostDetailProps) {
+export default function PostDetail({ post, onEdit, onClose }: PostDetailProps) {
   const deletePost = useDeletePost();
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -111,13 +112,21 @@ export default function PostDetail({ post, onClose }: PostDetailProps) {
 
       <div className="post-detail-actions">
         {post.status === 'scheduled' && (
-          <button
-            className="btn btn-danger"
-            onClick={() => setShowConfirm(true)}
-            disabled={deletePost.isPending}
-          >
-            {deletePost.isPending ? 'Deleting...' : 'Delete Post'}
-          </button>
+          <>
+            <button
+              className="btn btn-primary"
+              onClick={() => onEdit(post)}
+            >
+              Edit Post
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => setShowConfirm(true)}
+              disabled={deletePost.isPending}
+            >
+              {deletePost.isPending ? 'Deleting...' : 'Delete Post'}
+            </button>
+          </>
         )}
         <button className="btn btn-ghost" onClick={onClose}>Close</button>
       </div>
