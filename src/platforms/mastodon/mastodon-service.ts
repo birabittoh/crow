@@ -51,13 +51,13 @@ export class MastodonService implements PlatformService {
       },
       {
         key: 'spoiler_text',
-        label: 'Content Warning',
+        label: 'Content warning',
         type: 'string',
         description: 'Content warning text (hides post behind a warning)',
       },
       {
         key: 'sensitive',
-        label: 'Mark as Sensitive',
+        label: 'Mark as sensitive',
         type: 'boolean',
         description: 'Mark media as sensitive content',
       },

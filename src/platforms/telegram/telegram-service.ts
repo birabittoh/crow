@@ -50,7 +50,7 @@ export class TelegramService implements PlatformService {
     return [
       {
         key: 'parse_mode',
-        label: 'Parse Mode',
+        label: 'Parse mode',
         type: 'enum',
         enumValues: ['MarkdownV2', 'HTML'],
         description: 'How to parse the message text',

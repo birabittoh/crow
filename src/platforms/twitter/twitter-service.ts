@@ -58,13 +58,13 @@ export class TwitterService implements PlatformService {
     return [
       {
         key: 'reply_to_tweet_id',
-        label: 'Reply To Tweet ID',
+        label: 'Reply to tweet ID',
         type: 'string',
         description: 'ID of the tweet to reply to',
       },
       {
         key: 'quote_tweet_id',
-        label: 'Quote Tweet ID',
+        label: 'Quote tweet ID',
         type: 'string',
         description: 'ID of the tweet to quote',
       },
