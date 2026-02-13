@@ -354,7 +354,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
       onDrop={onDrop}
     >
       <div className="post-form-header">
-        <h2>{post ? 'Edit Post' : 'Schedule Post'}</h2>
+        <h2>{post ? 'Edit' : 'Schedule'}</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
       </div>
 
@@ -565,7 +565,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
             className="btn btn-primary"
             disabled={submitting || hasContentErrors || uploading}
           >
-            {submitting ? (post ? 'Updating...' : 'Scheduling...') : (post ? 'Update Post' : 'Schedule Post')}
+            {submitting ? (post ? 'Updating...' : 'Scheduling...') : (post ? 'Update' : 'Schedule')}
           </button>
         </div>
       </form>
@@ -575,7 +575,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
         <div className="modal-overlay" onClick={() => setShowConfirmDialog(false)}>
           <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Confirm Schedule</h3>
+              <h3>Confirm schedule</h3>
               <button className="btn btn-ghost" onClick={() => setShowConfirmDialog(false)}>&times;</button>
             </div>
             <div style={{ padding: '20px' }}>

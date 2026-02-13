@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useMedia, useUploadMedia, useDeleteMedia, useBulkDeleteMedia, useFileDrop } from '../hooks';
 import { getMediaUrl, ApiError } from '../api';
-import type { MediaAsset } from '../api';
 
 type FilterMode = 'all' | 'scheduled' | 'posted' | 'unused';
 
