@@ -48,6 +48,7 @@ export class MastodonService implements PlatformService {
         type: 'enum',
         enumValues: ['public', 'unlisted', 'private', 'direct'],
         description: 'Post visibility level',
+        defaultValue: 'public',
       },
       {
         key: 'spoiler_text',
@@ -147,9 +148,7 @@ export class MastodonService implements PlatformService {
       payload.media_ids = uploadedMediaIds;
     }
 
-    if (content.options.visibility) {
-      payload.visibility = content.options.visibility;
-    }
+    payload.visibility = content.options.visibility || 'public';
     if (content.options.spoiler_text) {
       payload.spoiler_text = content.options.spoiler_text;
     }

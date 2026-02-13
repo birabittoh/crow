@@ -52,7 +52,7 @@ export class TelegramService implements PlatformService {
         key: 'parse_mode',
         label: 'Parse mode',
         type: 'enum',
-        enumValues: ['MarkdownV2', 'HTML'],
+        enumValues: ['Markdown', 'MarkdownV2', 'HTML'],
         description: 'How to parse the message text',
       },
       {
@@ -110,7 +110,7 @@ export class TelegramService implements PlatformService {
     if (!this.bot) throw new Error('Telegram bot not initialized');
 
     const platformOptions = content.options;
-    const parseMode = platformOptions.parse_mode as 'MarkdownV2' | 'HTML' | undefined;
+    const parseMode = platformOptions.parse_mode as 'Markdown' | 'MarkdownV2' | 'HTML' | undefined;
     const disableNotification = !!platformOptions.disable_notification;
 
     // No media: send text message

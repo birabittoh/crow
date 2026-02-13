@@ -749,6 +749,26 @@ body {
   color: var(--color-primary);
 }
 
+.dragging-file {
+  border: 2px dashed var(--color-primary) !important;
+  background: var(--color-primary-subtle) !important;
+  position: relative;
+}
+
+.dragging-file::after {
+  content: "Drop files to upload";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 10;
+}
+
 /* Platform tabs */
 .platform-tabs {
   border: 1px solid var(--color-border);

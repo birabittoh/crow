@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { useMedia, useUploadMedia, useDeleteMedia, useBulkDeleteMedia } from '../hooks';
+import { useMedia, useUploadMedia, useDeleteMedia, useBulkDeleteMedia, useFileDrop } from '../hooks';
 import { getMediaUrl, ApiError } from '../api';
 import type { MediaAsset } from '../api';
 
@@ -29,6 +29,12 @@ export default function MediaPage({ onClose, onNavigateToPost }: { onClose: () =
   const deleteMedia = useDeleteMedia();
   const bulkDelete = useBulkDeleteMedia();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { isDragging, onDragOver, onDragLeave, onDrop } = useFileDrop(async (files) => {
+    for (let i = 0; i < files.length; i++) {
+      await uploadMedia.mutateAsync(files[i]);
+    }
+  });
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -81,7 +87,12 @@ export default function MediaPage({ onClose, onNavigateToPost }: { onClose: () =
   };
 
   return (
-    <div className="media-library">
+    <div
+      className={`media-library ${isDragging ? 'dragging-file' : ''}`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="media-library-header">
         <h2>Media</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>

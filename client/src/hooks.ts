@@ -1,5 +1,33 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type CreatePostPayload } from './api';
+
+export function useFileDrop(onDrop: (files: FileList) => void) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const onDropHandler = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onDrop(e.dataTransfer.files);
+    }
+  };
+
+  return { isDragging, onDragOver, onDragLeave, onDrop: onDropHandler };
+}
 
 export function useConfig() {
   return useQuery({
