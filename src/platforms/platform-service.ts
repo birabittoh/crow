@@ -34,6 +34,8 @@ export interface OptionField {
   required?: boolean;
   /** Short description shown as helper text */
   description?: string;
+  /** Default value for the field */
+  defaultValue?: unknown;
 }
 
 export interface CharacterLimits {

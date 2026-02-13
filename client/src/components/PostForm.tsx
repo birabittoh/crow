@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
-import { useCreatePost, useUpdatePost, useMedia } from '../hooks';
+import { useCreatePost, useUpdatePost, useMedia, useFileDrop } from '../hooks';
 import { api, getMediaUrl } from '../api';
 import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
 import SortableMediaGrid from './SortableMediaGrid';
@@ -149,6 +149,10 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   const [libraryPickerTarget, setLibraryPickerTarget] = useState<string | null>(null); // null = base, platform name = override
   const fileInputRef = useRef<HTMLInputElement>(null);
   const platformFileInputRef = useRef<HTMLInputElement>(null);
+
+  const { isDragging, onDragOver, onDragLeave, onDrop } = useFileDrop((files) => {
+    handleFileUpload(files, null);
+  });
 
   const handleChooseFromLibrary = (target: string | null) => {
     setLibraryPickerTarget(target);
@@ -299,14 +303,21 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
         scheduled_at_utc: new Date(scheduledAt).toISOString(),
         media_ids: selectedMedia.map((m) => m.id),
         platform_targets: selectedPlatforms.map((p) => {
-          const platformOpts = options[p];
-          const cleanedOpts = platformOpts
-            ? Object.fromEntries(
-                Object.entries(platformOpts).filter(
-                  ([, v]) => v !== undefined && v !== '' && v !== null
-                )
-              )
-            : null;
+          const platformOpts = options[p] || {};
+          const fields = platformOptions[p] || [];
+
+          const finalOpts = { ...platformOpts };
+          fields.forEach((field) => {
+            if (finalOpts[field.key] === undefined && field.defaultValue !== undefined) {
+              finalOpts[field.key] = field.defaultValue;
+            }
+          });
+
+          const cleanedOpts = Object.fromEntries(
+            Object.entries(finalOpts).filter(
+              ([, v]) => v !== undefined && v !== '' && v !== null
+            )
+          );
 
           const overrideMedia = platformMediaEnabled[p]
             ? (platformMediaOverrides[p] || []).map((m) => ({ media_asset_id: m.id }))
@@ -337,7 +348,11 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   };
 
   return (
-    <div className="post-form-container">
+    <div className={`post-form-container ${isDragging ? 'dragging-file' : ''}`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="post-form-header">
         <h2>{post ? 'Edit Post' : 'Schedule Post'}</h2>
         <button className="btn btn-ghost" onClick={onClose}>&times;</button>
@@ -496,12 +511,6 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                             )}
                           </>
                         )}
-                        {!platformContentEnabled[p] && maxChars != null && (
-                          <span className={`char-count ${isOverLimit ? 'char-count-error' : ''}`}>
-                            {effectiveText.length}/{maxChars} characters
-                            {isOverLimit && ' (using base content)'}
-                          </span>
-                        )}
                       </div>
 
                       {/* Per-platform media override */}
@@ -617,6 +626,17 @@ function MediaLibraryPicker({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  const { isDragging, onDragOver, onDragLeave, onDrop } = useFileDrop(async (files) => {
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        await onUpload(files[i]);
+      }
+    } finally {
+      setUploading(false);
+    }
+  });
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     setUploading(true);
@@ -632,7 +652,13 @@ function MediaLibraryPicker({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content media-picker-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal-content media-picker-modal ${isDragging ? 'dragging-file' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
         <div className="modal-header">
           <h3>Media</h3>
           <button className="btn btn-ghost" onClick={onClose}>&times;</button>
@@ -695,6 +721,8 @@ function OptionFieldInput({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
+  const effectiveValue = value !== undefined ? value : field.defaultValue;
+
   switch (field.type) {
     case 'boolean':
       return (
@@ -702,8 +730,8 @@ function OptionFieldInput({
           <label className="option-checkbox">
             <input
               type="checkbox"
-              checked={!!value}
-              onChange={(e) => onChange(e.target.checked || undefined)}
+              checked={!!effectiveValue}
+              onChange={(e) => onChange(e.target.checked)}
             />
             <span>{field.label}</span>
           </label>
@@ -719,10 +747,10 @@ function OptionFieldInput({
           <label>{field.label}</label>
           <select
             className="form-input"
-            value={(value as string) || ''}
+            value={(effectiveValue as string) || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
-            <option value="">-- None --</option>
+            {!field.defaultValue && <option value="">-- None --</option>}
             {field.enumValues?.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -743,7 +771,7 @@ function OptionFieldInput({
           <input
             type="text"
             className="form-input"
-            value={(value as string) || ''}
+            value={(effectiveValue as string) || ''}
             onChange={(e) => onChange(e.target.value || undefined)}
             placeholder={field.description || ''}
           />

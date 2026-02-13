@@ -5,6 +5,7 @@ export interface OptionField {
   enumValues?: string[];
   required?: boolean;
   description?: string;
+  defaultValue?: any;
 }
 
 export interface CredentialField {
