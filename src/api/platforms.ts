@@ -199,3 +199,62 @@ platformsRouter.delete('/:platform', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
+
+// Search Instagram music
+platformsRouter.get('/instagram/music/search', async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query || query.trim() === '') {
+      res.status(400).json({ error: 'Query parameter "q" is required' });
+      return;
+    }
+
+    // Get Instagram credentials from the database
+    const credRow = await db('platform_credentials')
+      .where('platform', 'instagram')
+      .first();
+
+    if (!credRow) {
+      res.status(400).json({ error: 'Instagram credentials not configured' });
+      return;
+    }
+
+    const credentials = JSON.parse(credRow.credentials_json);
+    const { accessToken, accountId } = credentials;
+
+    if (!accessToken || !accountId) {
+      res.status(400).json({ error: 'Invalid Instagram credentials' });
+      return;
+    }
+
+    // Search for music using Instagram Graph API
+    // Note: Instagram's music search API requires the ig_account to have access to music library
+    const searchUrl = new URL(`https://graph.instagram.com/v21.0/${accountId}/available_audio`);
+    searchUrl.searchParams.set('access_token', accessToken);
+    searchUrl.searchParams.set('q', query);
+    searchUrl.searchParams.set('fields', 'id,audio_name,artist_name,duration_in_sec');
+    searchUrl.searchParams.set('limit', '20');
+
+    const response = await fetch(searchUrl.toString());
+    const data = await response.json();
+
+    if (!response.ok) {
+      res.status(response.status).json({
+        error: data.error?.message || 'Failed to search music',
+      });
+      return;
+    }
+
+    // Format the response
+    const tracks = (data.data || []).map((track: any) => ({
+      id: track.id,
+      name: track.audio_name || 'Unknown',
+      artist: track.artist_name || 'Unknown Artist',
+      duration: track.duration_in_sec || 0,
+    }));
+
+    res.json({ tracks });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
