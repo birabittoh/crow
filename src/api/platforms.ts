@@ -200,7 +200,7 @@ platformsRouter.delete('/:platform', async (req: Request, res: Response) => {
   }
 });
 
-// Search Instagram music
+// Search Instagram music using Facebook Graph API Music Catalog
 platformsRouter.get('/instagram/music/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
@@ -227,29 +227,31 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
       return;
     }
 
-    // Search for music using Instagram Graph API
-    // Note: Instagram's music search API requires the ig_account to have access to music library
-    const searchUrl = new URL(`https://graph.instagram.com/v21.0/${accountId}/available_audio`);
+    // Search for music tracks using Instagram's content publishing API
+    // The music catalog is accessed through the IG User's available audio
+    const searchUrl = new URL(`https://graph.facebook.com/v21.0/ig_audio_search`);
     searchUrl.searchParams.set('access_token', accessToken);
     searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('fields', 'id,audio_name,artist_name,duration_in_sec');
+    searchUrl.searchParams.set('type', 'music');
+    searchUrl.searchParams.set('fields', 'id,title,artist,duration_in_ms');
     searchUrl.searchParams.set('limit', '20');
 
     const response = await fetch(searchUrl.toString());
     const data = await response.json() as {
       data?: Array<{
         id: string;
-        audio_name?: string;
-        artist_name?: string;
-        duration_in_sec?: number;
+        title?: string;
+        artist?: string;
+        duration_in_ms?: number;
       }>;
       error?: {
         message?: string;
+        code?: number;
       };
     };
 
-    if (!response.ok) {
-      res.status(response.status).json({
+    if (!response.ok || data.error) {
+      res.status(response.status || 500).json({
         error: data.error?.message || 'Failed to search music',
       });
       return;
@@ -258,9 +260,9 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
     // Format the response
     const tracks = (data.data || []).map((track) => ({
       id: track.id,
-      name: track.audio_name || 'Unknown',
-      artist: track.artist_name || 'Unknown Artist',
-      duration: track.duration_in_sec || 0,
+      name: track.title || 'Unknown',
+      artist: track.artist || 'Unknown Artist',
+      duration: track.duration_in_ms ? Math.floor(track.duration_in_ms / 1000) : 0,
     }));
 
     res.json({ tracks });

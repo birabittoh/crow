@@ -93,7 +93,9 @@ export default function InstagramMusicPicker({
               <div className="music-name">{selectedTrack.name}</div>
               <div className="music-artist">{selectedTrack.artist}</div>
             </div>
-            <span className="music-duration">{formatDuration(selectedTrack.duration)}</span>
+            {selectedTrack.duration > 0 && (
+              <span className="music-duration">{formatDuration(selectedTrack.duration)}</span>
+            )}
           </div>
           <button
             type="button"
