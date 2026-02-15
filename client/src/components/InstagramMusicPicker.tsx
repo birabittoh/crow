@@ -21,18 +21,24 @@ export default function InstagramMusicPicker({
   onAudioNameChange,
   onArtistChange,
 }: InstagramMusicPickerProps) {
+  const [mode, setMode] = useState<'search' | 'manual'>('search');
   const [searchQuery, setSearchQuery] = useState('');
+  const [manualId, setManualId] = useState('');
+  const [manualName, setManualName] = useState('');
+  const [manualArtist, setManualArtist] = useState('');
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Search for music when query changes (debounced)
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
+    if (mode !== 'search' || searchQuery.trim().length < 2) {
       setTracks([]);
       setShowResults(false);
+      setNotice(null);
       return;
     }
 
@@ -49,6 +55,7 @@ export default function InstagramMusicPicker({
         }
         const data = await response.json();
         setTracks(data.tracks || []);
+        setNotice(data.notice || null);
         setShowResults(true);
       } catch (err: any) {
         setError(err.message);
@@ -59,7 +66,7 @@ export default function InstagramMusicPicker({
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, mode]);
 
   const handleSelectTrack = (track: MusicTrack) => {
     setSelectedTrack(track);
@@ -75,6 +82,26 @@ export default function InstagramMusicPicker({
     onChange(undefined);
     if (onAudioNameChange) onAudioNameChange('');
     if (onArtistChange) onArtistChange('');
+    setManualId('');
+    setManualName('');
+    setManualArtist('');
+  };
+
+  const handleManualSubmit = () => {
+    if (!manualId.trim()) {
+      setError('Audio ID is required');
+      return;
+    }
+    const track: MusicTrack = {
+      id: manualId.trim(),
+      name: manualName.trim() || 'Custom Audio',
+      artist: manualArtist.trim() || 'Unknown Artist',
+      duration: 0,
+    };
+    setSelectedTrack(track);
+    onChange(track.id, track.name, track.artist);
+    if (onAudioNameChange) onAudioNameChange(track.name);
+    if (onArtistChange) onArtistChange(track.artist);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -93,7 +120,9 @@ export default function InstagramMusicPicker({
               <div className="music-name">{selectedTrack.name}</div>
               <div className="music-artist">{selectedTrack.artist}</div>
             </div>
-            <span className="music-duration">{formatDuration(selectedTrack.duration)}</span>
+            {selectedTrack.duration > 0 && (
+              <span className="music-duration">{formatDuration(selectedTrack.duration)}</span>
+            )}
           </div>
           <button
             type="button"
@@ -104,42 +133,108 @@ export default function InstagramMusicPicker({
           </button>
         </div>
       ) : (
-        <div className="music-search">
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search for music..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => {
-              if (tracks.length > 0) setShowResults(true);
-            }}
-          />
-          {loading && <div className="music-search-loading">Searching...</div>}
-          {error && <div className="music-search-error">{error}</div>}
-          {showResults && tracks.length > 0 && (
-            <div className="music-search-results">
-              {tracks.map((track) => (
-                <button
-                  key={track.id}
-                  type="button"
-                  className="music-track-item"
-                  onClick={() => handleSelectTrack(track)}
-                >
-                  <span className="music-icon">🎵</span>
-                  <div className="music-details">
-                    <div className="music-name">{track.name}</div>
-                    <div className="music-artist">{track.artist}</div>
-                  </div>
-                  <span className="music-duration">{formatDuration(track.duration)}</span>
-                </button>
-              ))}
+        <>
+          <div className="music-mode-tabs">
+            <button
+              type="button"
+              className={`music-mode-tab ${mode === 'search' ? 'active' : ''}`}
+              onClick={() => setMode('search')}
+            >
+              Search (Demo)
+            </button>
+            <button
+              type="button"
+              className={`music-mode-tab ${mode === 'manual' ? 'active' : ''}`}
+              onClick={() => setMode('manual')}
+            >
+              Enter Audio ID
+            </button>
+          </div>
+
+          {mode === 'search' ? (
+            <div className="music-search">
+              {notice && <div className="music-notice">{notice}</div>}
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search for music..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (tracks.length > 0) setShowResults(true);
+                }}
+              />
+              {loading && <div className="music-search-loading">Searching...</div>}
+              {error && <div className="music-search-error">{error}</div>}
+              {showResults && tracks.length > 0 && (
+                <div className="music-search-results">
+                  {tracks.map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className="music-track-item"
+                      onClick={() => handleSelectTrack(track)}
+                    >
+                      <span className="music-icon">🎵</span>
+                      <div className="music-details">
+                        <div className="music-name">{track.name}</div>
+                        <div className="music-artist">{track.artist}</div>
+                      </div>
+                      <span className="music-duration">{formatDuration(track.duration)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showResults && tracks.length === 0 && !loading && searchQuery.length >= 2 && (
+                <div className="music-search-empty">No music found</div>
+              )}
+            </div>
+          ) : (
+            <div className="music-manual">
+              <div className="music-manual-help">
+                Find audio IDs in Instagram Creator Studio or use the Facebook Music Catalog API.
+              </div>
+              <div className="form-group">
+                <label>Audio ID *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., 1234567890"
+                  value={manualId}
+                  onChange={(e) => setManualId(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Track Name (optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., My Song"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Artist (optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., Artist Name"
+                  value={manualArtist}
+                  onChange={(e) => setManualArtist(e.target.value)}
+                />
+              </div>
+              {error && <div className="music-search-error">{error}</div>}
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleManualSubmit}
+              >
+                Add Music
+              </button>
             </div>
           )}
-          {showResults && tracks.length === 0 && !loading && searchQuery.length >= 2 && (
-            <div className="music-search-empty">No music found</div>
-          )}
-        </div>
+        </>
       )}
     </div>
   );

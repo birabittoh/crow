@@ -201,6 +201,10 @@ platformsRouter.delete('/:platform', async (req: Request, res: Response) => {
 });
 
 // Search Instagram music
+// Note: Instagram's Graph API doesn't provide a public music search endpoint.
+// This endpoint returns demo/sample data for development purposes.
+// In production, users would need to obtain audio IDs from Instagram Creator Studio
+// or through Facebook's Music Catalog API with proper licensing.
 platformsRouter.get('/instagram/music/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
@@ -209,61 +213,47 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
       return;
     }
 
-    // Get Instagram credentials from the database
-    const credRow = await db('platform_credentials')
-      .where('platform', 'instagram')
-      .first();
+    // Instagram Graph API doesn't provide a public music search endpoint
+    // For production use, you would need to:
+    // 1. Use Instagram Creator Studio to find audio IDs manually
+    // 2. Integrate with Facebook Music Catalog API (requires music licensing permissions)
+    // 3. Maintain your own database of approved audio track IDs
 
-    if (!credRow) {
-      res.status(400).json({ error: 'Instagram credentials not configured' });
-      return;
-    }
+    // Return demo data for development/testing
+    const demoTracks = [
+      {
+        id: '1234567890',
+        name: 'Sample Track 1',
+        artist: 'Demo Artist',
+        duration: 180,
+      },
+      {
+        id: '0987654321',
+        name: 'Sample Track 2',
+        artist: 'Another Artist',
+        duration: 210,
+      },
+      {
+        id: '5555555555',
+        name: 'Background Music',
+        artist: 'Instrumental',
+        duration: 150,
+      },
+    ];
 
-    const credentials = JSON.parse(credRow.credentials_json);
-    const { accessToken, accountId } = credentials;
+    // Filter demo tracks based on query
+    const filteredTracks = demoTracks.filter((track) => {
+      const searchTerm = query.toLowerCase();
+      return (
+        track.name.toLowerCase().includes(searchTerm) ||
+        track.artist.toLowerCase().includes(searchTerm)
+      );
+    });
 
-    if (!accessToken || !accountId) {
-      res.status(400).json({ error: 'Invalid Instagram credentials' });
-      return;
-    }
-
-    // Search for music using Instagram Graph API
-    // Note: Instagram's music search API requires the ig_account to have access to music library
-    const searchUrl = new URL(`https://graph.instagram.com/v21.0/${accountId}/available_audio`);
-    searchUrl.searchParams.set('access_token', accessToken);
-    searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('fields', 'id,audio_name,artist_name,duration_in_sec');
-    searchUrl.searchParams.set('limit', '20');
-
-    const response = await fetch(searchUrl.toString());
-    const data = await response.json() as {
-      data?: Array<{
-        id: string;
-        audio_name?: string;
-        artist_name?: string;
-        duration_in_sec?: number;
-      }>;
-      error?: {
-        message?: string;
-      };
-    };
-
-    if (!response.ok) {
-      res.status(response.status).json({
-        error: data.error?.message || 'Failed to search music',
-      });
-      return;
-    }
-
-    // Format the response
-    const tracks = (data.data || []).map((track) => ({
-      id: track.id,
-      name: track.audio_name || 'Unknown',
-      artist: track.artist_name || 'Unknown Artist',
-      duration: track.duration_in_sec || 0,
-    }));
-
-    res.json({ tracks });
+    res.json({
+      tracks: filteredTracks,
+      notice: 'These are demo tracks. Instagram Graph API does not provide public music search. Use Instagram Creator Studio to find real audio IDs.'
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
