@@ -200,11 +200,7 @@ platformsRouter.delete('/:platform', async (req: Request, res: Response) => {
   }
 });
 
-// Search Instagram music
-// Note: Instagram's Graph API doesn't provide a public music search endpoint.
-// This endpoint returns demo/sample data for development purposes.
-// In production, users would need to obtain audio IDs from Instagram Creator Studio
-// or through Facebook's Music Catalog API with proper licensing.
+// Search Instagram music using Facebook Graph API Music Catalog
 platformsRouter.get('/instagram/music/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
@@ -213,47 +209,63 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
       return;
     }
 
-    // Instagram Graph API doesn't provide a public music search endpoint
-    // For production use, you would need to:
-    // 1. Use Instagram Creator Studio to find audio IDs manually
-    // 2. Integrate with Facebook Music Catalog API (requires music licensing permissions)
-    // 3. Maintain your own database of approved audio track IDs
+    // Get Instagram credentials from the database
+    const credRow = await db('platform_credentials')
+      .where('platform', 'instagram')
+      .first();
 
-    // Return demo data for development/testing
-    const demoTracks = [
-      {
-        id: '1234567890',
-        name: 'Sample Track 1',
-        artist: 'Demo Artist',
-        duration: 180,
-      },
-      {
-        id: '0987654321',
-        name: 'Sample Track 2',
-        artist: 'Another Artist',
-        duration: 210,
-      },
-      {
-        id: '5555555555',
-        name: 'Background Music',
-        artist: 'Instrumental',
-        duration: 150,
-      },
-    ];
+    if (!credRow) {
+      res.status(400).json({ error: 'Instagram credentials not configured' });
+      return;
+    }
 
-    // Filter demo tracks based on query
-    const filteredTracks = demoTracks.filter((track) => {
-      const searchTerm = query.toLowerCase();
-      return (
-        track.name.toLowerCase().includes(searchTerm) ||
-        track.artist.toLowerCase().includes(searchTerm)
-      );
-    });
+    const credentials = JSON.parse(credRow.credentials_json);
+    const { accessToken, accountId } = credentials;
 
-    res.json({
-      tracks: filteredTracks,
-      notice: 'These are demo tracks. Instagram Graph API does not provide public music search. Use Instagram Creator Studio to find real audio IDs.'
-    });
+    if (!accessToken || !accountId) {
+      res.status(400).json({ error: 'Invalid Instagram credentials' });
+      return;
+    }
+
+    // Search for music tracks using Instagram's content publishing API
+    // The music catalog is accessed through the IG User's available audio
+    const searchUrl = new URL(`https://graph.facebook.com/v21.0/ig_audio_search`);
+    searchUrl.searchParams.set('access_token', accessToken);
+    searchUrl.searchParams.set('q', query);
+    searchUrl.searchParams.set('type', 'music');
+    searchUrl.searchParams.set('fields', 'id,title,artist,duration_in_ms');
+    searchUrl.searchParams.set('limit', '20');
+
+    const response = await fetch(searchUrl.toString());
+    const data = await response.json() as {
+      data?: Array<{
+        id: string;
+        title?: string;
+        artist?: string;
+        duration_in_ms?: number;
+      }>;
+      error?: {
+        message?: string;
+        code?: number;
+      };
+    };
+
+    if (!response.ok || data.error) {
+      res.status(response.status || 500).json({
+        error: data.error?.message || 'Failed to search music',
+      });
+      return;
+    }
+
+    // Format the response
+    const tracks = (data.data || []).map((track) => ({
+      id: track.id,
+      name: track.title || 'Unknown',
+      artist: track.artist || 'Unknown Artist',
+      duration: track.duration_in_ms ? Math.floor(track.duration_in_ms / 1000) : 0,
+    }));
+
+    res.json({ tracks });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
