@@ -4,6 +4,7 @@ import { useCreatePost, useUpdatePost, useMedia, useFileDrop } from '../hooks';
 import { api, getMediaUrl } from '../api';
 import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
 import SortableMediaGrid from './SortableMediaGrid';
+import InstagramMusicPicker from './InstagramMusicPicker';
 
 interface PostFormProps {
   platforms: string[];
@@ -543,8 +544,10 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                         <OptionFieldInput
                           key={field.key}
                           field={field}
+                          platform={p}
                           value={options[p]?.[field.key]}
                           onChange={(value) => setOptionValue(p, field.key, value)}
+                          setOptionValue={setOptionValue}
                         />
                       ))}
                     </div>
@@ -714,14 +717,38 @@ function MediaLibraryPicker({
 
 function OptionFieldInput({
   field,
+  platform,
   value,
   onChange,
+  setOptionValue,
 }: {
   field: OptionField;
+  platform: string;
   value: unknown;
   onChange: (value: unknown) => void;
+  setOptionValue: (platform: string, key: string, value: unknown) => void;
 }) {
   const effectiveValue = value !== undefined ? value : field.defaultValue;
+
+  // Special handling for Instagram music picker
+  if (field.key === 'audio_id' && platform === 'instagram') {
+    return (
+      <div className="form-group option-field">
+        <label>{field.label}</label>
+        <InstagramMusicPicker
+          value={effectiveValue as string | undefined}
+          onChange={(trackId, trackName, artistName) => {
+            onChange(trackId);
+            if (trackName) setOptionValue(platform, 'audio_name', trackName);
+            if (artistName) setOptionValue(platform, 'audio_artist', artistName);
+          }}
+        />
+        {field.description && (
+          <span className="option-description">{field.description}</span>
+        )}
+      </div>
+    );
+  }
 
   switch (field.type) {
     case 'boolean':

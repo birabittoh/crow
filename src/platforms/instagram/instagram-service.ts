@@ -61,6 +61,12 @@ export class InstagramService implements PlatformService {
         type: 'string',
         description: 'Facebook Place ID to tag the post with a location',
       },
+      {
+        key: 'audio_id',
+        label: 'Music Track',
+        type: 'string',
+        description: 'Add background music to your Instagram post',
+      },
     ];
   }
 
@@ -116,6 +122,7 @@ export class InstagramService implements PlatformService {
 
     const { accessToken, accountId } = this.credentials;
     const locationId = content.options.location_id as string | undefined;
+    const audioId = content.options.audio_id as string | undefined;
 
     if (uploadedMediaIds.length === 1) {
       // Single image or video post
@@ -126,6 +133,7 @@ export class InstagramService implements PlatformService {
         uploadedMediaIds[0],
         content.text,
         locationId,
+        audioId,
       );
 
       if (content.media[0].type === 'video') {
@@ -145,6 +153,7 @@ export class InstagramService implements PlatformService {
         uploadedMediaIds[i],
         undefined, // caption only on the carousel container
         undefined,
+        undefined,
         true,
       );
 
@@ -163,6 +172,7 @@ export class InstagramService implements PlatformService {
     });
     if (content.text) params.set('caption', content.text);
     if (locationId) params.set('location_id', locationId);
+    if (audioId) params.set('audio_name', audioId);
 
     const carouselRes = await fetch(
       `${INSTAGRAM_GRAPH_API_BASE}/${accountId}/media?${params}`,
@@ -229,6 +239,7 @@ export class InstagramService implements PlatformService {
     storagePath: string,
     caption?: string,
     locationId?: string,
+    audioId?: string,
     isCarouselItem?: boolean,
   ): Promise<string> {
     const isVideo = asset.type === 'video';
@@ -246,6 +257,7 @@ export class InstagramService implements PlatformService {
     } else {
       if (caption) params.set('caption', caption);
       if (locationId) params.set('location_id', locationId);
+      if (audioId) params.set('audio_name', audioId);
     }
 
     const res = await fetch(

@@ -17,6 +17,9 @@ export type TelegramOptions = z.infer<typeof TelegramOptionsSchema>;
 
 export const InstagramOptionsSchema = z.object({
   location_id: z.string().optional(),
+  audio_id: z.string().optional(),
+  audio_name: z.string().optional(),
+  audio_artist: z.string().optional(),
 });
 
 export type InstagramOptions = z.infer<typeof InstagramOptionsSchema>;
