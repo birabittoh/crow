@@ -200,7 +200,56 @@ platformsRouter.delete('/:platform', async (req: Request, res: Response) => {
   }
 });
 
-// Search Instagram music using Facebook Graph API Music Catalog
+// Spotify access token cache
+let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getSpotifyAccessToken(): Promise<string> {
+  // Return cached token if still valid
+  if (spotifyTokenCache && spotifyTokenCache.expiresAt > Date.now()) {
+    return spotifyTokenCache.token;
+  }
+
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Spotify API credentials not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env');
+  }
+
+  // Request access token using client credentials flow
+  const tokenUrl = 'https://accounts.spotify.com/api/token';
+  const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${authHeader}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get Spotify access token: ${response.statusText}`);
+  }
+
+  const data = await response.json() as {
+    access_token: string;
+    expires_in: number;
+  };
+
+  // Cache the token (subtract 60s for safety margin)
+  spotifyTokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  };
+
+  return data.access_token;
+}
+
+// Search Instagram music using Spotify Web API
+// Instagram Graph API doesn't provide a music search endpoint, but accepts audio_name parameter
+// We use Spotify to search for real tracks and return metadata that can be used with audio_name
 platformsRouter.get('/instagram/music/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
@@ -209,60 +258,47 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
       return;
     }
 
-    // Get Instagram credentials from the database
-    const credRow = await db('platform_credentials')
-      .where('platform', 'instagram')
-      .first();
+    // Get Spotify access token
+    const accessToken = await getSpotifyAccessToken();
 
-    if (!credRow) {
-      res.status(400).json({ error: 'Instagram credentials not configured' });
-      return;
-    }
-
-    const credentials = JSON.parse(credRow.credentials_json);
-    const { accessToken, accountId } = credentials;
-
-    if (!accessToken || !accountId) {
-      res.status(400).json({ error: 'Invalid Instagram credentials' });
-      return;
-    }
-
-    // Search for music tracks using Instagram's content publishing API
-    // The music catalog is accessed through the IG User's available audio
-    const searchUrl = new URL(`https://graph.facebook.com/v21.0/ig_audio_search`);
-    searchUrl.searchParams.set('access_token', accessToken);
+    // Search for tracks using Spotify API
+    const searchUrl = new URL('https://api.spotify.com/v1/search');
     searchUrl.searchParams.set('q', query);
-    searchUrl.searchParams.set('type', 'music');
-    searchUrl.searchParams.set('fields', 'id,title,artist,duration_in_ms');
+    searchUrl.searchParams.set('type', 'track');
     searchUrl.searchParams.set('limit', '20');
+    searchUrl.searchParams.set('market', 'US');
 
-    const response = await fetch(searchUrl.toString());
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `Spotify API error: ${response.statusText}`);
+    }
+
     const data = await response.json() as {
-      data?: Array<{
-        id: string;
-        title?: string;
-        artist?: string;
-        duration_in_ms?: number;
-      }>;
-      error?: {
-        message?: string;
-        code?: number;
+      tracks?: {
+        items?: Array<{
+          id: string;
+          name: string;
+          artists: Array<{ name: string }>;
+          duration_ms: number;
+          album?: {
+            images?: Array<{ url: string }>;
+          };
+        }>;
       };
     };
 
-    if (!response.ok || data.error) {
-      res.status(response.status || 500).json({
-        error: data.error?.message || 'Failed to search music',
-      });
-      return;
-    }
-
     // Format the response
-    const tracks = (data.data || []).map((track) => ({
+    const tracks = (data.tracks?.items || []).map((track) => ({
       id: track.id,
-      name: track.title || 'Unknown',
-      artist: track.artist || 'Unknown Artist',
-      duration: track.duration_in_ms ? Math.floor(track.duration_in_ms / 1000) : 0,
+      name: track.name,
+      artist: track.artists.map(a => a.name).join(', '),
+      duration: Math.floor(track.duration_ms / 1000),
     }));
 
     res.json({ tracks });
