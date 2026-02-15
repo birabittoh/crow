@@ -236,7 +236,17 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
     searchUrl.searchParams.set('limit', '20');
 
     const response = await fetch(searchUrl.toString());
-    const data = await response.json();
+    const data = await response.json() as {
+      data?: Array<{
+        id: string;
+        audio_name?: string;
+        artist_name?: string;
+        duration_in_sec?: number;
+      }>;
+      error?: {
+        message?: string;
+      };
+    };
 
     if (!response.ok) {
       res.status(response.status).json({
@@ -246,7 +256,7 @@ platformsRouter.get('/instagram/music/search', async (req: Request, res: Respons
     }
 
     // Format the response
-    const tracks = (data.data || []).map((track: any) => ({
+    const tracks = (data.data || []).map((track) => ({
       id: track.id,
       name: track.audio_name || 'Unknown',
       artist: track.artist_name || 'Unknown Artist',
