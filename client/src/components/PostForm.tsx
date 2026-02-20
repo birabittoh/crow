@@ -1,10 +1,13 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
+import twitterText from 'twitter-text';
 import { useCreatePost, useUpdatePost, useMedia, useFileDrop } from '../hooks';
 import { api, getMediaUrl } from '../api';
 import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
 import SortableMediaGrid from './SortableMediaGrid';
 import InstagramMusicPicker from './InstagramMusicPicker';
+
+const { parseTweet } = twitterText;
 
 interface PostFormProps {
   platforms: string[];
@@ -38,11 +41,22 @@ function validateContentLimits(
     const maxChars = hasMedia && limits.maxCharsWithMedia != null
       ? limits.maxCharsWithMedia
       : limits.maxChars;
-    if (text.length > maxChars) {
-      errors.push({
-        platform,
-        message: `${text.length}/${maxChars} characters`,
-      });
+
+    if (platform === 'twitter') {
+      const result = parseTweet(text);
+      if (!result.valid) {
+        errors.push({
+          platform,
+          message: `${result.weightedLength}/${maxChars} characters`,
+        });
+      }
+    } else {
+      if (text.length > maxChars) {
+        errors.push({
+          platform,
+          message: `${text.length}/${maxChars} characters`,
+        });
+      }
     }
   }
   return errors;
@@ -481,7 +495,17 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                     const maxChars = limits
                       ? (effectiveHasMedia && limits.maxCharsWithMedia != null ? limits.maxCharsWithMedia : limits.maxChars)
                       : null;
-                    const isOverLimit = maxChars != null && effectiveText.length > maxChars;
+
+                    let isOverLimit = false;
+                    let displayCount = effectiveText.length;
+
+                    if (p === 'twitter') {
+                      const result = parseTweet(effectiveText);
+                      isOverLimit = !result.valid;
+                      displayCount = result.weightedLength;
+                    } else {
+                      isOverLimit = maxChars != null && effectiveText.length > maxChars;
+                    }
 
                     return (
                     <div className="platform-tab-fields">
@@ -507,7 +531,7 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
                             />
                             {maxChars != null && (
                               <span className={`char-count ${isOverLimit ? 'char-count-error' : ''}`}>
-                                {effectiveText.length}/{maxChars} characters
+                                {displayCount}/{maxChars} characters
                               </span>
                             )}
                           </>

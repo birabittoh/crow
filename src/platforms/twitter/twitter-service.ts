@@ -1,4 +1,5 @@
 import { TwitterApi, EUploadMimeType } from 'twitter-api-v2';
+import twitterText from 'twitter-text';
 import {
   PlatformService,
   PublishContent,
@@ -16,6 +17,8 @@ import {
   TWITTER_MAX_VIDEOS,
 } from './twitter-schemas';
 import fs from 'fs';
+
+const { parseTweet } = twitterText;
 
 interface TwitterCredentials {
   apiKey: string;
@@ -85,10 +88,11 @@ export class TwitterService implements PlatformService {
       });
     }
 
-    if (content.text.length > TWITTER_MAX_CHARS) {
+    const tweetResult = parseTweet(content.text);
+    if (!tweetResult.valid) {
       errors.push({
         field: 'text',
-        message: `Tweet exceeds ${TWITTER_MAX_CHARS} character limit (${content.text.length} chars)`,
+        message: `Tweet exceeds ${TWITTER_MAX_CHARS} character limit (${tweetResult.weightedLength} weighted chars)`,
       });
     }
 
