@@ -57,6 +57,66 @@ aiServicesRouter.put('/prompt', async (req: Request, res: Response) => {
   }
 });
 
+// Fetch available models from an AI service
+aiServicesRouter.post('/models', async (req: Request, res: Response) => {
+  try {
+    let apiUrl: string;
+    let apiKey: string;
+    const { service_id } = req.body;
+
+    if (service_id) {
+      const service = await db('ai_services').where('id', service_id).first();
+      if (!service) {
+        res.status(404).json({ error: 'AI service not found' });
+        return;
+      }
+      apiUrl = service.api_url;
+      apiKey = service.api_key;
+    } else {
+      apiUrl = req.body.api_url;
+      apiKey = req.body.api_key;
+    }
+
+    if (!apiUrl || !apiKey) {
+      res.status(400).json({ error: 'api_url and api_key are required (or provide service_id)' });
+      return;
+    }
+
+    // Derive models URL from chat completions URL
+    let modelsUrl: string;
+    if (apiUrl.includes('/chat/completions')) {
+      modelsUrl = apiUrl.replace('/chat/completions', '/models');
+    } else {
+      const url = new URL(apiUrl);
+      const parts = url.pathname.split('/').filter(Boolean);
+      parts.pop();
+      url.pathname = '/' + parts.join('/') + '/models';
+      modelsUrl = url.toString();
+    }
+
+    const response = await fetch(modelsUrl, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      res.status(502).json({ error: `AI service returned ${response.status}: ${errBody}` });
+      return;
+    }
+
+    const data = await response.json() as {
+      data?: Array<{ id: string; [key: string]: unknown }>;
+    };
+
+    const models = (data.data || []).map((m) => m.id).sort();
+    res.json({ models });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 // Create or update an AI service
 aiServicesRouter.put('/:id', async (req: Request, res: Response) => {
   try {

@@ -205,6 +205,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ prompt }),
     }),
+  fetchAiModels: (params: { api_url: string; api_key: string } | { service_id: string }) =>
+    apiFetch<{ models: string[] }>('/api/ai-services/models', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
   generateAiText: (service_id: string, prompt: string) =>
     apiFetch<{ text: string }>('/api/ai-services/generate', {
       method: 'POST',

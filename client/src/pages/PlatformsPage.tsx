@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials, useAiServices, useSaveAiService, useDeleteAiService, useAiDefaultPrompt, useSaveAiDefaultPrompt } from '../hooks';
+import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials, useAiServices, useSaveAiService, useDeleteAiService, useFetchAiModels, useAiDefaultPrompt, useSaveAiDefaultPrompt } from '../hooks';
 import type { PlatformInfo, CredentialField, AiServiceFull } from '../api';
 import { MetaLogin } from '../components/MetaLogin';
 import { TwitterLogin } from '../components/TwitterLogin';
@@ -374,6 +374,8 @@ function AiServicesSection() {
   const [promptValue, setPromptValue] = useState('');
   const [promptDirty, setPromptDirty] = useState(false);
   const [showConfirmRemove, setShowConfirmRemove] = useState<string | null>(null);
+  const fetchModelsMutation = useFetchAiModels();
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   useEffect(() => {
     if (promptData?.prompt !== undefined && !promptDirty) {
@@ -438,6 +440,25 @@ function AiServicesSection() {
     }
   };
 
+  const handleFetchModels = async () => {
+    setError(null);
+    try {
+      let result;
+      if (editingId && !form.api_key) {
+        result = await fetchModelsMutation.mutateAsync({ service_id: editingId });
+      } else {
+        if (!form.api_url || !form.api_key) {
+          setError('API URL and API Key are required to fetch models');
+          return;
+        }
+        result = await fetchModelsMutation.mutateAsync({ api_url: form.api_url, api_key: form.api_key });
+      }
+      setAvailableModels(result.models);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch models');
+    }
+  };
+
   return (
     <>
       <h3 className="ai-section-title">AI Services</h3>
@@ -481,7 +502,15 @@ function AiServicesSection() {
                 </div>
                 <div className="form-group">
                   <label>Model</label>
-                  <input className="form-input" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input className="form-input" list="ai-models-list" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                    <button className="btn btn-ghost" type="button" onClick={handleFetchModels} disabled={fetchModelsMutation.isPending}>
+                      {fetchModelsMutation.isPending ? 'Loading...' : 'Fetch models'}
+                    </button>
+                  </div>
+                  <datalist id="ai-models-list">
+                    {availableModels.map((m) => <option key={m} value={m} />)}
+                  </datalist>
                 </div>
                 {error && <div className="form-error">{error}</div>}
                 <div className="platform-card-form-actions">
@@ -534,7 +563,15 @@ function AiServicesSection() {
               </div>
               <div className="form-group">
                 <label>Model</label>
-                <input className="form-input" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input className="form-input" list="ai-models-list" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                  <button className="btn btn-ghost" type="button" onClick={handleFetchModels} disabled={fetchModelsMutation.isPending}>
+                    {fetchModelsMutation.isPending ? 'Loading...' : 'Fetch models'}
+                  </button>
+                </div>
+                <datalist id="ai-models-list">
+                  {availableModels.map((m) => <option key={m} value={m} />)}
+                </datalist>
               </div>
               {error && <div className="form-error">{error}</div>}
               <div className="platform-card-form-actions">

@@ -183,6 +183,13 @@ export function useDeleteAiService() {
   });
 }
 
+export function useFetchAiModels() {
+  return useMutation({
+    mutationFn: (params: { api_url: string; api_key: string } | { service_id: string }) =>
+      api.fetchAiModels(params),
+  });
+}
+
 export function useAiDefaultPrompt() {
   return useQuery({
     queryKey: ['ai-default-prompt'],
