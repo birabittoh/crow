@@ -18,6 +18,45 @@ aiServicesRouter.get('/', async (_req: Request, res: Response) => {
   }
 });
 
+// Get/set the default AI prompt template
+// NOTE: These must be registered before the /:id routes so that
+// "/prompt" matches literally instead of being captured as :id.
+aiServicesRouter.get('/prompt', async (_req: Request, res: Response) => {
+  try {
+    const row = await db('app_settings').where('key', 'ai_default_prompt').first();
+    res.json({ prompt: row?.value || '' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+aiServicesRouter.put('/prompt', async (req: Request, res: Response) => {
+  try {
+    const { prompt } = req.body;
+    if (typeof prompt !== 'string') {
+      res.status(400).json({ error: 'prompt must be a string' });
+      return;
+    }
+
+    const existing = await db('app_settings').where('key', 'ai_default_prompt').first();
+    if (existing) {
+      await db('app_settings').where('key', 'ai_default_prompt').update({
+        value: prompt,
+        updated_at: db.fn.now(),
+      });
+    } else {
+      await db('app_settings').insert({
+        key: 'ai_default_prompt',
+        value: prompt,
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 // Create or update an AI service
 aiServicesRouter.put('/:id', async (req: Request, res: Response) => {
   try {
@@ -59,43 +98,6 @@ aiServicesRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await db('ai_services').where('id', id).delete();
-    res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Internal server error' });
-  }
-});
-
-// Get/set the default AI prompt template
-aiServicesRouter.get('/prompt', async (_req: Request, res: Response) => {
-  try {
-    const row = await db('app_settings').where('key', 'ai_default_prompt').first();
-    res.json({ prompt: row?.value || '' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Internal server error' });
-  }
-});
-
-aiServicesRouter.put('/prompt', async (req: Request, res: Response) => {
-  try {
-    const { prompt } = req.body;
-    if (typeof prompt !== 'string') {
-      res.status(400).json({ error: 'prompt must be a string' });
-      return;
-    }
-
-    const existing = await db('app_settings').where('key', 'ai_default_prompt').first();
-    if (existing) {
-      await db('app_settings').where('key', 'ai_default_prompt').update({
-        value: prompt,
-        updated_at: db.fn.now(),
-      });
-    } else {
-      await db('app_settings').insert({
-        key: 'ai_default_prompt',
-        value: prompt,
-      });
-    }
-
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
