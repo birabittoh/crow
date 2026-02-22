@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials } from '../hooks';
-import type { PlatformInfo, CredentialField } from '../api';
+import { usePlatforms, useSavePlatformCredentials, useDeletePlatformCredentials, useAiServices, useSaveAiService, useDeleteAiService, useFetchAiModels, useAiDefaultPrompt, useSaveAiDefaultPrompt } from '../hooks';
+import type { PlatformInfo, CredentialField, AiServiceFull } from '../api';
 import { MetaLogin } from '../components/MetaLogin';
 import { TwitterLogin } from '../components/TwitterLogin';
 
@@ -48,6 +48,8 @@ export default function PlatformsPage({ onClose }: PlatformsPageProps) {
           />
         ))}
       </div>
+
+      <AiServicesSection />
     </div>
   );
 }
@@ -355,6 +357,303 @@ function PlatformCard({
         </div>
       )}
     </div>
+  );
+}
+
+const PREMADE_CONFIGS = [
+  { id: 'openai',      name: 'OpenAI',          api_url: 'https://api.openai.com/v1/chat/completions',            type: 'openai' },
+  { id: 'openrouter',  name: 'OpenRouter',       api_url: 'https://openrouter.ai/api/v1/chat/completions',         type: 'openai' },
+  { id: 'groq',        name: 'Groq',             api_url: 'https://api.groq.com/openai/v1/chat/completions',       type: 'openai' },
+  { id: 'ollama',      name: 'Ollama (local)',    api_url: 'http://localhost:11434/v1/chat/completions',            type: 'openai' },
+  { id: 'gemini',      name: 'Google Gemini',    api_url: 'https://generativelanguage.googleapis.com/v1beta',      type: 'gemini' },
+] as const;
+
+function AiServicesSection() {
+  const { data: services = [] } = useAiServices();
+  const { data: promptData } = useAiDefaultPrompt();
+  const saveMutation = useSaveAiService();
+  const deleteMutation = useDeleteAiService();
+  const savePromptMutation = useSaveAiDefaultPrompt();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [form, setForm] = useState({ id: '', name: '', api_url: '', api_key: '', model: '', type: 'openai' });
+  const [error, setError] = useState<string | null>(null);
+  const [promptValue, setPromptValue] = useState('');
+  const [promptDirty, setPromptDirty] = useState(false);
+  const [showConfirmRemove, setShowConfirmRemove] = useState<string | null>(null);
+  const fetchModelsMutation = useFetchAiModels();
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (promptData?.prompt !== undefined && !promptDirty) {
+      setPromptValue(promptData.prompt);
+    }
+  }, [promptData, promptDirty]);
+
+  const startEditing = (service: AiServiceFull) => {
+    setForm({
+      id: service.id,
+      name: service.name,
+      api_url: service.api_url,
+      api_key: service.api_key.startsWith('***') ? '' : service.api_key,
+      model: service.model,
+      type: service.type || 'openai',
+    });
+    setError(null);
+    setEditingId(service.id);
+    setIsAdding(false);
+  };
+
+  const startAdding = () => {
+    setForm({ id: '', name: '', api_url: '', api_key: '', model: '', type: 'openai' });
+    setError(null);
+    setIsAdding(true);
+    setEditingId(null);
+  };
+
+  const handleSave = async () => {
+    setError(null);
+    const id = isAdding ? form.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-') : editingId!;
+    if (!id || !form.name || !form.api_url || !form.api_key) {
+      setError('All fields except Model are required');
+      return;
+    }
+    try {
+      await saveMutation.mutateAsync({
+        id,
+        data: { name: form.name, api_url: form.api_url, api_key: form.api_key, model: form.model, type: form.type },
+      });
+      setEditingId(null);
+      setIsAdding(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      setShowConfirmRemove(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete');
+    }
+  };
+
+  const handleSavePrompt = async () => {
+    try {
+      await savePromptMutation.mutateAsync(promptValue);
+      setPromptDirty(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save prompt');
+    }
+  };
+
+  const handleFetchModels = async () => {
+    setError(null);
+    try {
+      let result;
+      if (editingId && !form.api_key) {
+        result = await fetchModelsMutation.mutateAsync({ service_id: editingId });
+      } else {
+        if (!form.api_url || !form.api_key) {
+          setError('API URL and API Key are required to fetch models');
+          return;
+        }
+        result = await fetchModelsMutation.mutateAsync({ api_url: form.api_url, api_key: form.api_key, type: form.type });
+      }
+      setAvailableModels(result.models);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch models');
+    }
+  };
+
+  return (
+    <>
+      <h3 className="ai-section-title">AI Services</h3>
+      <p className="platforms-description">
+        Configure AI text generation services (OpenAI-compatible or Google Gemini). These can be used to generate post content from the post editor.
+      </p>
+
+      <div className="platforms-grid">
+        {services.map((service) => (
+          <div key={service.id} className={`platform-card ${editingId === service.id ? '' : 'configured'}`}>
+            <div className="platform-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="platform-card-name">{service.name}</span>
+                <span className="ai-service-id">{service.id}</span>
+              </div>
+              <span className="platform-card-status status-configured">
+                {service.model || 'No model'}
+              </span>
+            </div>
+
+            {editingId !== service.id && (
+              <div className="platform-card-actions">
+                <button className="btn btn-ghost" onClick={() => startEditing(service)}>Update</button>
+                <button className="btn btn-danger" onClick={() => setShowConfirmRemove(service.id)}>Remove</button>
+              </div>
+            )}
+
+            {editingId === service.id && (
+              <div className="platform-card-form">
+                <div className="form-group">
+                  <label>Name</label>
+                  <input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. OpenRouter GPT-4o" />
+                </div>
+                <div className="form-group">
+                  <label>Type</label>
+                  <select className="form-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                    <option value="openai">OpenAI-compatible</option>
+                    <option value="gemini">Google Gemini</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>{form.type === 'gemini' ? 'Base URL' : 'API URL'}</label>
+                  <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder={form.type === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : 'https://openrouter.ai/api/v1/chat/completions'} />
+                </div>
+                <div className="form-group">
+                  <label>API Key</label>
+                  <input type="password" className="form-input" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="Enter API key" />
+                </div>
+                <div className="form-group">
+                  <label>Model</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input className="form-input" list="ai-models-list" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                    <button className="btn btn-ghost" type="button" onClick={handleFetchModels} disabled={fetchModelsMutation.isPending}>
+                      {fetchModelsMutation.isPending ? 'Loading...' : 'Fetch models'}
+                    </button>
+                  </div>
+                  <datalist id="ai-models-list">
+                    {availableModels.map((m) => <option key={m} value={m} />)}
+                  </datalist>
+                </div>
+                {error && <div className="form-error">{error}</div>}
+                <div className="platform-card-form-actions">
+                  <button className="btn btn-ghost" onClick={() => setEditingId(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={handleSave} disabled={saveMutation.isPending}>
+                    {saveMutation.isPending ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showConfirmRemove === service.id && (
+              <div className="modal-overlay" onClick={() => setShowConfirmRemove(null)}>
+                <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>Remove {service.name}?</h3>
+                    <button className="btn btn-ghost" onClick={() => setShowConfirmRemove(null)}>&times;</button>
+                  </div>
+                  <div style={{ padding: '20px' }}>
+                    <p>This will remove the AI service "{service.name}" and its API key.</p>
+                  </div>
+                  <div className="modal-footer">
+                    <button className="btn btn-ghost" onClick={() => setShowConfirmRemove(null)}>Cancel</button>
+                    <button className="btn btn-danger" onClick={() => handleDelete(service.id)}>Remove</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isAdding && (
+          <div className="platform-card">
+            <div className="platform-card-form">
+              <div className="form-group">
+                <label>Quick setup</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {PREMADE_CONFIGS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                      onClick={() => setForm((f) => ({ ...f, id: preset.id, name: preset.name, api_url: preset.api_url, type: preset.type }))}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Service ID</label>
+                <input className="form-input" value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="e.g. openrouter" />
+              </div>
+              <div className="form-group">
+                <label>Name</label>
+                <input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. OpenRouter" />
+              </div>
+              <div className="form-group">
+                <label>Type</label>
+                <select className="form-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                  <option value="openai">OpenAI-compatible</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>{form.type === 'gemini' ? 'Base URL' : 'API URL'}</label>
+                <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder={form.type === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : 'https://openrouter.ai/api/v1/chat/completions'} />
+              </div>
+              <div className="form-group">
+                <label>API Key</label>
+                <input type="password" className="form-input" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="Enter API key" />
+              </div>
+              <div className="form-group">
+                <label>Model</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input className="form-input" list="ai-models-list" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. gpt-4o-mini (optional)" />
+                  <button className="btn btn-ghost" type="button" onClick={handleFetchModels} disabled={fetchModelsMutation.isPending}>
+                    {fetchModelsMutation.isPending ? 'Loading...' : 'Fetch models'}
+                  </button>
+                </div>
+                <datalist id="ai-models-list">
+                  {availableModels.map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </div>
+              {error && <div className="form-error">{error}</div>}
+              <div className="platform-card-form-actions">
+                <button className="btn btn-ghost" onClick={() => setIsAdding(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? 'Saving...' : 'Add'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isAdding && editingId === null && (
+          <button className="btn btn-ghost ai-add-service-btn" onClick={startAdding}>
+            + Add AI service
+          </button>
+        )}
+      </div>
+
+      <h3 className="ai-section-title">Default AI Prompt</h3>
+      <p className="platforms-description">
+        Template for AI text generation. Use {'{{platform}}'}, {'{{char_limit}}'}, {'{{theme}}'} as placeholders.
+      </p>
+      <div className="ai-prompt-editor">
+        <textarea
+          className="form-textarea"
+          rows={5}
+          value={promptValue}
+          onChange={(e) => { setPromptValue(e.target.value); setPromptDirty(true); }}
+          placeholder="e.g. Write a social media post for {{platform}} (max {{char_limit}} characters) about: {{theme}}"
+        />
+        {promptDirty && (
+          <div className="ai-prompt-actions">
+            <button className="btn btn-ghost" onClick={() => { setPromptValue(promptData?.prompt || ''); setPromptDirty(false); }}>
+              Discard
+            </button>
+            <button className="btn btn-primary" onClick={handleSavePrompt} disabled={savePromptMutation.isPending}>
+              {savePromptMutation.isPending ? 'Saving...' : 'Save prompt'}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

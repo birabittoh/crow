@@ -17,6 +17,7 @@ export default function App() {
   const [returnView, setReturnView] = useState<View>('calendar');
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [initialTheme, setInitialTheme] = useState<string>('');
 
   if (isLoading) {
     return <div className="loading">Loading configuration...</div>;
@@ -65,10 +66,11 @@ export default function App() {
               setReturnView('calendar');
               setView('detail');
             }}
-            onSelectDate={(date) => {
+            onSelectDate={(date, theme) => {
               if (!hasPlatforms) return;
               setSelectedPost(null);
               setSelectedDate(date);
+              setInitialTheme(theme || '');
               setReturnView('calendar');
               setView('create');
             }}
@@ -80,9 +82,13 @@ export default function App() {
             platformOptions={config?.platformOptions || {}}
             platformLimits={config?.platformLimits || {}}
             initialDate={selectedDate}
+            initialTheme={initialTheme}
+            aiServices={config?.aiServices || []}
+            aiDefaultPrompt={config?.aiDefaultPrompt || ''}
             post={selectedPost || undefined}
             onClose={() => {
               setSelectedPost(null);
+              setInitialTheme('');
               setView(returnView);
             }}
           />

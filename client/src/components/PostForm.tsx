@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { useCreatePost, useUpdatePost, useMedia, useFileDrop } from '../hooks';
 import { api, getMediaUrl } from '../api';
-import type { OptionField, CharacterLimits, MediaAsset, Post } from '../api';
+import type { OptionField, CharacterLimits, MediaAsset, Post, AiServiceInfo } from '../api';
 import SortableMediaGrid from './SortableMediaGrid';
 import InstagramMusicPicker from './InstagramMusicPicker';
 
@@ -11,6 +11,9 @@ interface PostFormProps {
   platformOptions: Record<string, OptionField[]>;
   platformLimits: Record<string, CharacterLimits>;
   initialDate: Date | null;
+  initialTheme?: string;
+  aiServices: AiServiceInfo[];
+  aiDefaultPrompt: string;
   post?: Post;
   onClose: () => void;
 }
@@ -68,7 +71,7 @@ const ChooseFromLibraryButton = ({ target, onClick }: ChooseFromLibraryButtonPro
   </button>
 );
 
-export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, post, onClose }: PostFormProps) {
+export default function PostForm({ platforms, platformOptions, platformLimits, initialDate, initialTheme, aiServices, aiDefaultPrompt, post, onClose }: PostFormProps) {
   const createPost = useCreatePost();
   const updatePost = useUpdatePost();
   const { data: libraryMedia = [] } = useMedia();
@@ -80,7 +83,9 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
   }, [post, initialDate]);
 
   const [content, setContent] = useState(post?.base_content || '');
+  const [theme, setTheme] = useState(initialTheme || '');
   const [scheduledAt, setScheduledAt] = useState(defaultDateTime);
+  const [showAiModal, setShowAiModal] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     post ? post.platform_targets.map((t) => t.platform) : platforms
   );
@@ -363,7 +368,37 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
         {error && <div className="form-error">{error}</div>}
 
         <div className="form-group">
-          <label>Content</label>
+          <label>Post theme</label>
+          <input
+            type="text"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            placeholder="Optional theme or topic for this post..."
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-group">
+          <div className="content-label-row">
+            <label>Content</label>
+            {aiServices.length > 0 && (
+              <button
+                type="button"
+                className="btn-magic-pencil"
+                onClick={() => setShowAiModal(true)}
+                title="Generate with AI"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M9 4L12 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M13 1L15 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="3.5" cy="3.5" r="1" fill="currentColor" opacity="0.6"/>
+                  <circle cx="14" cy="12" r="0.8" fill="currentColor" opacity="0.5"/>
+                  <circle cx="6" cy="1.5" r="0.6" fill="currentColor" opacity="0.4"/>
+                </svg>
+              </button>
+            )}
+          </div>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -609,6 +644,22 @@ export default function PostForm({ platforms, platformOptions, platformLimits, i
           }
         />
       )}
+
+      {/* AI Generation Modal */}
+      {showAiModal && (
+        <AiGenerateModal
+          aiServices={aiServices}
+          defaultPrompt={aiDefaultPrompt}
+          theme={theme}
+          platforms={selectedPlatforms}
+          platformLimits={platformLimits}
+          onInsert={(text) => {
+            setContent(text);
+            setShowAiModal(false);
+          }}
+          onClose={() => setShowAiModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -709,6 +760,144 @@ function MediaLibraryPicker({
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function substitutePrompt(
+  template: string,
+  vars: { platform?: string; char_limit?: string; theme?: string },
+): string {
+  let result = template;
+  result = result.replace(/\{\{platform\}\}/g, vars.platform || 'social media');
+  result = result.replace(/\{\{char_limit\}\}/g, vars.char_limit || 'no limit');
+  result = result.replace(/\{\{theme\}\}/g, vars.theme || '(no theme specified)');
+  return result;
+}
+
+function AiGenerateModal({
+  aiServices,
+  defaultPrompt,
+  theme,
+  platforms,
+  platformLimits,
+  onInsert,
+  onClose,
+}: {
+  aiServices: AiServiceInfo[];
+  defaultPrompt: string;
+  theme: string;
+  platforms: string[];
+  platformLimits: Record<string, CharacterLimits>;
+  onInsert: (text: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedServiceId, setSelectedServiceId] = useState(aiServices[0]?.id || '');
+
+  // Build initial prompt with substitution
+  const lowestLimit = useMemo(() => {
+    const limits = platforms.map((p) => platformLimits[p]?.maxChars).filter(Boolean);
+    return limits.length > 0 ? Math.min(...limits) : undefined;
+  }, [platforms, platformLimits]);
+
+  const initialPrompt = useMemo(() => {
+    const tmpl = defaultPrompt || 'Write a social media post for {{platform}} (max {{char_limit}} characters) about: {{theme}}';
+    return substitutePrompt(tmpl, {
+      platform: platforms.join(', ') || 'social media',
+      char_limit: lowestLimit ? String(lowestLimit) : 'no limit',
+      theme: theme || '(no theme specified)',
+    });
+  }, [defaultPrompt, platforms, lowestLimit, theme]);
+
+  const [prompt, setPrompt] = useState(initialPrompt);
+  const [generatedText, setGeneratedText] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!selectedServiceId || !prompt.trim()) return;
+    setGenerating(true);
+    setError(null);
+    setGeneratedText('');
+    try {
+      const result = await api.generateAiText(selectedServiceId, prompt);
+      setGeneratedText(result.text);
+    } catch (err: any) {
+      setError(err.message || 'Generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content ai-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Generate with AI</h3>
+          <button className="btn btn-ghost" onClick={onClose}>&times;</button>
+        </div>
+        <div className="ai-modal-body">
+          <div className="form-group">
+            <label>AI Service</label>
+            <input
+              list="ai-services-list"
+              className="form-input"
+              value={selectedServiceId}
+              onChange={(e) => setSelectedServiceId(e.target.value)}
+              placeholder="Select an AI service..."
+            />
+            <datalist id="ai-services-list">
+              {aiServices.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.model ? ` (${s.model})` : ''}
+                </option>
+              ))}
+            </datalist>
+          </div>
+          <div className="form-group">
+            <label>Prompt</label>
+            <textarea
+              className="form-textarea"
+              rows={5}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+            <span className="option-description">
+              Use {'{{platform}}'}, {'{{char_limit}}'}, {'{{theme}}'} for substitution
+            </span>
+          </div>
+          {error && <div className="form-error">{error}</div>}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleGenerate}
+            disabled={generating || !selectedServiceId}
+          >
+            {generating ? 'Generating...' : 'Generate'}
+          </button>
+          {generatedText && (
+            <div className="form-group">
+              <label>Result</label>
+              <textarea
+                className="form-textarea"
+                rows={6}
+                value={generatedText}
+                onChange={(e) => setGeneratedText(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            onClick={() => onInsert(generatedText)}
+            disabled={!generatedText.trim()}
+          >
+            Use this text
+          </button>
         </div>
       </div>
     </div>

@@ -26,7 +26,7 @@ type CalendarView = 'month' | 'week' | 'day';
 
 interface CalendarProps {
   onSelectPost: (post: Post) => void;
-  onSelectDate: (date: Date) => void;
+  onSelectDate: (date: Date, theme?: string) => void;
 }
 
 function getStatusColor(status: string): string {
@@ -48,6 +48,16 @@ function getEventDisplayName(event: RecurrentEvent, date: Date): string {
   if (event.year === undefined || event.year === null) return event.name;
   const age = date.getFullYear() - event.year;
   return `${event.name} (${age})`;
+}
+
+function buildEventTheme(event: RecurrentEvent, date: Date): string {
+  const parts: string[] = [event.name];
+  if (event.description) parts.push(event.description);
+  if (event.year !== undefined && event.year !== null) {
+    const diff = date.getFullYear() - event.year;
+    if (diff > 0) parts.push(`${diff} years`);
+  }
+  return parts.join(' - ');
 }
 
 export default function CalendarPage({ onSelectPost, onSelectDate }: CalendarProps) {
@@ -218,7 +228,7 @@ interface ViewProps {
   posts: Post[];
   recurrentEvents: RecurrentEvent[];
   onSelectPost: (post: Post) => void;
-  onSelectDate: (date: Date) => void;
+  onSelectDate: (date: Date, theme?: string) => void;
 }
 
 function MonthView({
@@ -297,7 +307,15 @@ function MonthView({
                 ) : (
                   <div className="cell-events">
                     {dayEvents.map((ev) => (
-                      <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
+                      <div
+                        key={ev.id}
+                        className="event-chip recurrent-event"
+                        title={ev.description}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectDate(d, buildEventTheme(ev, d));
+                        }}
+                      >
                         {getEventDisplayName(ev, d)}
                       </div>
                     ))}
@@ -354,7 +372,12 @@ function WeekView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectD
             return (
               <div key={d.toISOString()} className="week-allday-cell">
                 {dayEvents.map((ev) => (
-                  <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
+                  <div
+                    key={ev.id}
+                    className="event-chip recurrent-event"
+                    title={ev.description}
+                    onClick={() => onSelectDate(d, buildEventTheme(ev, d))}
+                  >
                     {getEventDisplayName(ev, d)}
                   </div>
                 ))}
@@ -413,7 +436,12 @@ function DayView({ currentDate, posts, recurrentEvents, onSelectPost, onSelectDa
       {dayEvents.length > 0 && (
         <div className="day-events-banner">
           {dayEvents.map((ev) => (
-            <div key={ev.id} className="event-chip recurrent-event" title={ev.description}>
+            <div
+              key={ev.id}
+              className="event-chip recurrent-event"
+              title={ev.description}
+              onClick={() => onSelectDate(currentDate, buildEventTheme(ev, currentDate))}
+            >
               {getEventDisplayName(ev, currentDate)}
             </div>
           ))}
