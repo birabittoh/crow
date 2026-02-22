@@ -55,7 +55,7 @@ function buildEventTheme(event: RecurrentEvent, date: Date): string {
   if (event.description) parts.push(event.description);
   if (event.year !== undefined && event.year !== null) {
     const diff = date.getFullYear() - event.year;
-    if (diff > 0) parts.push(`${diff} years`);
+    if (diff > 0) parts.push(`${diff} years ago.`);
   }
   return parts.join(' - ');
 }
