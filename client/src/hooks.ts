@@ -151,3 +151,52 @@ export function useDeletePlatformCredentials() {
     },
   });
 }
+
+// AI services
+export function useAiServices() {
+  return useQuery({
+    queryKey: ['ai-services'],
+    queryFn: api.getAiServices,
+  });
+}
+
+export function useSaveAiService() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string; api_url: string; api_key: string; model: string } }) =>
+      api.saveAiService(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-services'] });
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+}
+
+export function useDeleteAiService() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteAiService(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-services'] });
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+}
+
+export function useAiDefaultPrompt() {
+  return useQuery({
+    queryKey: ['ai-default-prompt'],
+    queryFn: api.getAiDefaultPrompt,
+  });
+}
+
+export function useSaveAiDefaultPrompt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (prompt: string) => api.saveAiDefaultPrompt(prompt),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-default-prompt'] });
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+}

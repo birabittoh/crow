@@ -22,12 +22,28 @@ export interface CharacterLimits {
   requiresMedia?: boolean;
 }
 
+export interface AiServiceInfo {
+  id: string;
+  name: string;
+  model: string;
+}
+
+export interface AiServiceFull {
+  id: string;
+  name: string;
+  api_url: string;
+  api_key: string;
+  model: string;
+}
+
 export interface AppConfig {
   platforms: string[];
   allPlatforms: string[];
   platformOptions: Record<string, OptionField[]>;
   platformLimits: Record<string, CharacterLimits>;
   schedulerPollIntervalMs: number;
+  aiServices: AiServiceInfo[];
+  aiDefaultPrompt: string;
 }
 
 export interface PlatformInfo {
@@ -173,4 +189,25 @@ export const api = {
     }),
   deletePlatformCredentials: (platform: string) =>
     apiFetch<{ success: boolean }>(`/api/platforms/${platform}`, { method: 'DELETE' }),
+
+  // AI services
+  getAiServices: () => apiFetch<AiServiceFull[]>('/api/ai-services'),
+  saveAiService: (id: string, data: { name: string; api_url: string; api_key: string; model: string }) =>
+    apiFetch<{ success: boolean }>(`/api/ai-services/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteAiService: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/ai-services/${id}`, { method: 'DELETE' }),
+  getAiDefaultPrompt: () => apiFetch<{ prompt: string }>('/api/ai-services/prompt'),
+  saveAiDefaultPrompt: (prompt: string) =>
+    apiFetch<{ success: boolean }>('/api/ai-services/prompt', {
+      method: 'PUT',
+      body: JSON.stringify({ prompt }),
+    }),
+  generateAiText: (service_id: string, prompt: string) =>
+    apiFetch<{ text: string }>('/api/ai-services/generate', {
+      method: 'POST',
+      body: JSON.stringify({ service_id, prompt }),
+    }),
 };
