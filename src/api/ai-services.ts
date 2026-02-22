@@ -62,6 +62,7 @@ aiServicesRouter.post('/models', async (req: Request, res: Response) => {
   try {
     let apiUrl: string;
     let apiKey: string;
+    let serviceType: string;
     const { service_id } = req.body;
 
     if (service_id) {
@@ -72,9 +73,11 @@ aiServicesRouter.post('/models', async (req: Request, res: Response) => {
       }
       apiUrl = service.api_url;
       apiKey = service.api_key;
+      serviceType = service.type || 'openai';
     } else {
       apiUrl = req.body.api_url;
       apiKey = req.body.api_key;
+      serviceType = req.body.type || 'openai';
     }
 
     if (!apiUrl || !apiKey) {
@@ -82,35 +85,51 @@ aiServicesRouter.post('/models', async (req: Request, res: Response) => {
       return;
     }
 
-    // Derive models URL from chat completions URL
-    let modelsUrl: string;
-    if (apiUrl.includes('/chat/completions')) {
-      modelsUrl = apiUrl.replace('/chat/completions', '/models');
+    let models: string[];
+
+    if (serviceType === 'gemini') {
+      // Gemini models endpoint: GET {base_url}/models?key={api_key}
+      const modelsUrl = `${apiUrl.replace(/\/$/, '')}/models?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(modelsUrl);
+      if (!response.ok) {
+        const errBody = await response.text();
+        res.status(502).json({ error: `Gemini API returned ${response.status}: ${errBody}` });
+        return;
+      }
+      const data = await response.json() as {
+        models?: Array<{ name: string; [key: string]: unknown }>;
+      };
+      // Gemini model names are like "models/gemini-1.5-pro" — strip the prefix
+      models = (data.models || [])
+        .map((m) => m.name.replace(/^models\//, ''))
+        .filter((id) => id.startsWith('gemini'))
+        .sort();
     } else {
-      const url = new URL(apiUrl);
-      const parts = url.pathname.split('/').filter(Boolean);
-      parts.pop();
-      url.pathname = '/' + parts.join('/') + '/models';
-      modelsUrl = url.toString();
+      // OpenAI-compatible: derive models URL from chat completions URL
+      let modelsUrl: string;
+      if (apiUrl.includes('/chat/completions')) {
+        modelsUrl = apiUrl.replace('/chat/completions', '/models');
+      } else {
+        const url = new URL(apiUrl);
+        const parts = url.pathname.split('/').filter(Boolean);
+        parts.pop();
+        url.pathname = '/' + parts.join('/') + '/models';
+        modelsUrl = url.toString();
+      }
+      const response = await fetch(modelsUrl, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!response.ok) {
+        const errBody = await response.text();
+        res.status(502).json({ error: `AI service returned ${response.status}: ${errBody}` });
+        return;
+      }
+      const data = await response.json() as {
+        data?: Array<{ id: string; [key: string]: unknown }>;
+      };
+      models = (data.data || []).map((m) => m.id).sort();
     }
 
-    const response = await fetch(modelsUrl, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      res.status(502).json({ error: `AI service returned ${response.status}: ${errBody}` });
-      return;
-    }
-
-    const data = await response.json() as {
-      data?: Array<{ id: string; [key: string]: unknown }>;
-    };
-
-    const models = (data.data || []).map((m) => m.id).sort();
     res.json({ models });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
@@ -121,12 +140,14 @@ aiServicesRouter.post('/models', async (req: Request, res: Response) => {
 aiServicesRouter.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, api_url, api_key, model } = req.body;
+    const { name, api_url, api_key, model, type } = req.body;
 
     if (!name || !api_url || !api_key) {
       res.status(400).json({ error: 'name, api_url, and api_key are required' });
       return;
     }
+
+    const serviceType = type || 'openai';
 
     const existing = await db('ai_services').where('id', id).first();
     if (existing) {
@@ -135,6 +156,7 @@ aiServicesRouter.put('/:id', async (req: Request, res: Response) => {
         api_url,
         api_key,
         model: model || '',
+        type: serviceType,
         updated_at: db.fn.now(),
       });
     } else {
@@ -144,6 +166,7 @@ aiServicesRouter.put('/:id', async (req: Request, res: Response) => {
         api_url,
         api_key,
         model: model || '',
+        type: serviceType,
       });
     }
 
@@ -180,34 +203,63 @@ aiServicesRouter.post('/generate', async (req: Request, res: Response) => {
       return;
     }
 
-    // Call the AI service using OpenAI-compatible chat completions API
-    const body: Record<string, unknown> = {
-      messages: [{ role: 'user', content: prompt }],
-    };
-    if (service.model) {
-      body.model = service.model;
+    const serviceType = service.type || 'openai';
+    let text: string;
+
+    if (serviceType === 'gemini') {
+      if (!service.model) {
+        res.status(400).json({ error: 'A model must be set for Gemini services' });
+        return;
+      }
+      const generateUrl = `${service.api_url.replace(/\/$/, '')}/models/${service.model}:generateContent?key=${encodeURIComponent(service.api_key)}`;
+      const response = await fetch(generateUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        res.status(502).json({ error: `Gemini API returned ${response.status}: ${errBody}` });
+        return;
+      }
+
+      const data = await response.json() as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      // OpenAI-compatible chat completions
+      const body: Record<string, unknown> = {
+        messages: [{ role: 'user', content: prompt }],
+      };
+      if (service.model) {
+        body.model = service.model;
+      }
+
+      const response = await fetch(service.api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${service.api_key}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        res.status(502).json({ error: `AI service returned ${response.status}: ${errBody}` });
+        return;
+      }
+
+      const data = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      text = data.choices?.[0]?.message?.content || '';
     }
 
-    const response = await fetch(service.api_url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${service.api_key}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      res.status(502).json({ error: `AI service returned ${response.status}: ${errBody}` });
-      return;
-    }
-
-    const data = await response.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const text = data.choices?.[0]?.message?.content || '';
     res.json({ text });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });

@@ -185,7 +185,7 @@ export function useDeleteAiService() {
 
 export function useFetchAiModels() {
   return useMutation({
-    mutationFn: (params: { api_url: string; api_key: string } | { service_id: string }) =>
+    mutationFn: (params: { api_url: string; api_key: string; type: string } | { service_id: string }) =>
       api.fetchAiModels(params),
   });
 }

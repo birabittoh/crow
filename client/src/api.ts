@@ -34,6 +34,7 @@ export interface AiServiceFull {
   api_url: string;
   api_key: string;
   model: string;
+  type: string;
 }
 
 export interface AppConfig {
@@ -192,7 +193,7 @@ export const api = {
 
   // AI services
   getAiServices: () => apiFetch<AiServiceFull[]>('/api/ai-services'),
-  saveAiService: (id: string, data: { name: string; api_url: string; api_key: string; model: string }) =>
+  saveAiService: (id: string, data: { name: string; api_url: string; api_key: string; model: string; type: string }) =>
     apiFetch<{ success: boolean }>(`/api/ai-services/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -205,7 +206,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ prompt }),
     }),
-  fetchAiModels: (params: { api_url: string; api_key: string } | { service_id: string }) =>
+  fetchAiModels: (params: { api_url: string; api_key: string; type: string } | { service_id: string }) =>
     apiFetch<{ models: string[] }>('/api/ai-services/models', {
       method: 'POST',
       body: JSON.stringify(params),

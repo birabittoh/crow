@@ -360,6 +360,14 @@ function PlatformCard({
   );
 }
 
+const PREMADE_CONFIGS = [
+  { id: 'openai',      name: 'OpenAI',          api_url: 'https://api.openai.com/v1/chat/completions',            type: 'openai' },
+  { id: 'openrouter',  name: 'OpenRouter',       api_url: 'https://openrouter.ai/api/v1/chat/completions',         type: 'openai' },
+  { id: 'groq',        name: 'Groq',             api_url: 'https://api.groq.com/openai/v1/chat/completions',       type: 'openai' },
+  { id: 'ollama',      name: 'Ollama (local)',    api_url: 'http://localhost:11434/v1/chat/completions',            type: 'openai' },
+  { id: 'gemini',      name: 'Google Gemini',    api_url: 'https://generativelanguage.googleapis.com/v1beta',      type: 'gemini' },
+] as const;
+
 function AiServicesSection() {
   const { data: services = [] } = useAiServices();
   const { data: promptData } = useAiDefaultPrompt();
@@ -369,7 +377,7 @@ function AiServicesSection() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [form, setForm] = useState({ id: '', name: '', api_url: '', api_key: '', model: '' });
+  const [form, setForm] = useState({ id: '', name: '', api_url: '', api_key: '', model: '', type: 'openai' });
   const [error, setError] = useState<string | null>(null);
   const [promptValue, setPromptValue] = useState('');
   const [promptDirty, setPromptDirty] = useState(false);
@@ -390,6 +398,7 @@ function AiServicesSection() {
       api_url: service.api_url,
       api_key: service.api_key.startsWith('***') ? '' : service.api_key,
       model: service.model,
+      type: service.type || 'openai',
     });
     setError(null);
     setEditingId(service.id);
@@ -397,7 +406,7 @@ function AiServicesSection() {
   };
 
   const startAdding = () => {
-    setForm({ id: '', name: '', api_url: '', api_key: '', model: '' });
+    setForm({ id: '', name: '', api_url: '', api_key: '', model: '', type: 'openai' });
     setError(null);
     setIsAdding(true);
     setEditingId(null);
@@ -413,7 +422,7 @@ function AiServicesSection() {
     try {
       await saveMutation.mutateAsync({
         id,
-        data: { name: form.name, api_url: form.api_url, api_key: form.api_key, model: form.model },
+        data: { name: form.name, api_url: form.api_url, api_key: form.api_key, model: form.model, type: form.type },
       });
       setEditingId(null);
       setIsAdding(false);
@@ -451,7 +460,7 @@ function AiServicesSection() {
           setError('API URL and API Key are required to fetch models');
           return;
         }
-        result = await fetchModelsMutation.mutateAsync({ api_url: form.api_url, api_key: form.api_key });
+        result = await fetchModelsMutation.mutateAsync({ api_url: form.api_url, api_key: form.api_key, type: form.type });
       }
       setAvailableModels(result.models);
     } catch (err: any) {
@@ -463,7 +472,7 @@ function AiServicesSection() {
     <>
       <h3 className="ai-section-title">AI Services</h3>
       <p className="platforms-description">
-        Configure AI text generation services (OpenAI-compatible API). These can be used to generate post content from the post editor.
+        Configure AI text generation services (OpenAI-compatible or Google Gemini). These can be used to generate post content from the post editor.
       </p>
 
       <div className="platforms-grid">
@@ -493,8 +502,15 @@ function AiServicesSection() {
                   <input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. OpenRouter GPT-4o" />
                 </div>
                 <div className="form-group">
-                  <label>API URL</label>
-                  <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder="https://openrouter.ai/api/v1/chat/completions" />
+                  <label>Type</label>
+                  <select className="form-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                    <option value="openai">OpenAI-compatible</option>
+                    <option value="gemini">Google Gemini</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>{form.type === 'gemini' ? 'Base URL' : 'API URL'}</label>
+                  <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder={form.type === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : 'https://openrouter.ai/api/v1/chat/completions'} />
                 </div>
                 <div className="form-group">
                   <label>API Key</label>
@@ -546,6 +562,22 @@ function AiServicesSection() {
           <div className="platform-card">
             <div className="platform-card-form">
               <div className="form-group">
+                <label>Quick setup</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {PREMADE_CONFIGS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                      onClick={() => setForm((f) => ({ ...f, id: preset.id, name: preset.name, api_url: preset.api_url, type: preset.type }))}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
                 <label>Service ID</label>
                 <input className="form-input" value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="e.g. openrouter" />
               </div>
@@ -554,8 +586,15 @@ function AiServicesSection() {
                 <input className="form-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. OpenRouter" />
               </div>
               <div className="form-group">
-                <label>API URL</label>
-                <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder="https://openrouter.ai/api/v1/chat/completions" />
+                <label>Type</label>
+                <select className="form-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                  <option value="openai">OpenAI-compatible</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>{form.type === 'gemini' ? 'Base URL' : 'API URL'}</label>
+                <input className="form-input" value={form.api_url} onChange={(e) => setForm((f) => ({ ...f, api_url: e.target.value }))} placeholder={form.type === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta' : 'https://openrouter.ai/api/v1/chat/completions'} />
               </div>
               <div className="form-group">
                 <label>API Key</label>
